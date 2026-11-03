@@ -1,8 +1,8 @@
-// FASE 1: servidor mínimo do simulador.
-//   TOGETHER_API_KEY=... npm run dev  →  http://localhost:3000
+// Servidor do simulador. Persistência: MongoDB (kit + sessões), MinIO (arquivos), Redis (limites).
+//   docker compose up   →  http://localhost:3000
 import express from 'express';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve, sep } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 // Carrega esqueleto/.env (se existir). Variáveis já definidas no shell têm prioridade.
 const ENV_FILE = join(__dirname, '../.env');
@@ -10,17 +10,21 @@ if (existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
 import { modelFor, type Agent, type MediaAnalyzerPort } from './engine/types';
 import { intake, runTurn } from './engine/runTurn';
 import { openAiCompatible } from './providers/openaiCompatible';
-import { appendUser, buildSimulatorContext, createSession, deleteSession, getSession, type Session, type SimMessage } from './adapters/simulator';
+import { appendUser, buildSimulatorContext, createSession, type Session, type SimMessage } from './adapters/simulator';
 import { extForMime, transcribe, TRANSCRIBE_MODEL } from './providers/transcribe';
 import { audioCostUsd, fxInfo, priceFor, pricesInfo, refreshFx, refreshPrices, tokensCostUsd, usageFromRaw } from './providers/pricing';
 import { createMediaAnalyzer } from './engine/agents/mediaAnalyzer';
 import { CRM_EVENTS } from './engine/crm';
-import { localMediaFiles } from './adapters/mediaFiles';
+import { createMediaFiles } from './adapters/mediaFiles';
+import { connectAll, disconnectAll } from './db/connection';
+import { ensureKit, getKit, saveKit } from './adapters/kitRepo';
+import { sessionRepo } from './adapters/sessionRepo';
+import { getObject, objectKeyFor, putObject, sendObject } from './adapters/storage';
+import { allowHit } from './adapters/rateLimit';
 
-function loadKitAgent(kitJsonPath: string, apiKey: string): Agent {
-  const raw = JSON.parse(readFileSync(kitJsonPath, 'utf8'));
+function kitToAgent(raw: Record<string, any>, apiKey: string): Agent {
   const a = raw.agent;
-  const systemPrompt = a.system_prompt ?? readFileSync(join(dirname(kitJsonPath), a.system_prompt_file), 'utf8');
+  const systemPrompt = a.system_prompt ?? '';
   return {
     id: raw.key,
     kit: { id: raw.key, name: raw.kit.name, company_info: raw.kit.company_info, faq: raw.kit.faq ?? [], media_library: raw.kit.media_library ?? [], vision_context: raw.kit.vision_context ?? null },
@@ -41,19 +45,31 @@ function loadKitAgent(kitJsonPath: string, apiKey: string): Agent {
   };
 }
 
-const KIT = process.env.KIT_PATH ?? join(__dirname, '../../kits/salario-maternidade/kit.json');
+// Kit inicial: importado do arquivo para o MongoDB na 1ª subida; depois o banco é a fonte da verdade.
+const KIT_SEED = process.env.KIT_PATH ?? join(__dirname, '../../kits/salario-maternidade/kit.json');
 const API_KEY = process.env.TOGETHER_API_KEY ?? '';
-let agent = loadKitAgent(KIT, API_KEY);
+let KIT_KEY = process.env.KIT_KEY ?? '';
+let kitRaw: Record<string, any> = {};
+let agent: Agent;
 const llm = openAiCompatible('together');
 
-// Arquivos que o lead manda no simulador (áudio gravado, fotos, PDFs). Fase 2: storage.
-const SIM_MEDIA_DIR = join(__dirname, '../.sim-media');
-// Leitor de foto/PDF (docs/03 §4): visão do kit (models.vision) + texto/render de PDF.
-const vision: MediaAnalyzerPort = createMediaAnalyzer(llm, localMediaFiles({ 'sim/': SIM_MEDIA_DIR }));
+async function reloadAgent() {
+  kitRaw = await getKit(KIT_KEY);
+  agent = kitToAgent(kitRaw, API_KEY);
+}
+
+// Leitor de foto/PDF (docs/03 §4): visão do kit (models.vision) + texto/render de PDF. Arquivos no MinIO.
+const vision: MediaAnalyzerPort = createMediaAnalyzer(llm, createMediaFiles(async (path) => {
+  const key = objectKeyFor(path, KIT_KEY);
+  return key ? getObject(key) : null;
+}));
 
 const app = express();
 app.set('trust proxy', true); // IP real atrás de proxy (Render/Railway/Nginx) para os limites
 app.use(express.json());
+// App React compilado (web/dist) quando existe (Docker); senão o chat simples de public/.
+const WEB_DIST = join(__dirname, '../web/dist');
+if (existsSync(WEB_DIST)) app.use(express.static(WEB_DIST));
 app.use(express.static(join(__dirname, '../public')));
 
 // ---------- Modo público: simulador embutido na página do cliente ----------
@@ -96,16 +112,10 @@ h1{font-size:22px;text-align:center;margin:8px 0 4px}p{text-align:center;color:#
 <script src="/embed/hub-ia-simulador.js"></script></body></html>`);
 });
 
-// limites do modo público (memória; Fase 2: Redis)
-const sessionHits = new Map<string, number[]>();
-function allowNewSession(ip: string): boolean {
+// limites do modo público (Redis: janela de 1h por IP)
+async function allowNewSession(ip: string): Promise<boolean> {
   if (!PUBLIC_DEMO) return true;
-  const now = Date.now();
-  const hits = (sessionHits.get(ip) ?? []).filter((t) => now - t < 60 * 60 * 1000);
-  if (hits.length >= DEMO_MAX_SESSIONS) return false;
-  hits.push(now);
-  sessionHits.set(ip, hits);
-  return true;
+  return allowHit(`sessions:${ip}`, DEMO_MAX_SESSIONS, 60 * 60);
 }
 const tooManyMessages = (s: Session) =>
   PUBLIC_DEMO && s.messages.filter((m) => m.role === 'user').length >= DEMO_MAX_MESSAGES;
@@ -113,72 +123,61 @@ const LIMIT_MSG = 'Limite de mensagens desta conversa de teste atingido. Clique 
 
 app.get('/api/public/agent', (_req, res) => {
   res.json({
-    name: readKitFile().raw.agent?.name ?? agent.kit.name,
+    name: kitRaw.agent?.name ?? agent.kit.name,
     documents: agent.required_documents.map((d) => ({ key: d.key, label: d.label, file_types: d.file_types, accepted: d.accepted, request_message: '' })),
     publicMode: PUBLIC_DEMO,
   });
 });
 
-// ---------- Config do agente (lê/grava o kit.json e recarrega sem reiniciar) ----------
+// ---------- Config do agente (MongoDB, coleção kits; recarrega sem reiniciar) ----------
 
-function readKitFile() {
-  const raw = JSON.parse(readFileSync(KIT, 'utf8'));
-  const file = raw.agent?.system_prompt_file;
-  const systemPrompt = raw.agent?.system_prompt ?? (file ? readFileSync(join(dirname(KIT), file), 'utf8') : '');
-  return { raw, systemPrompt };
+function agentPayload() {
+  const { system_prompt: systemPrompt = '', ...agentRest } = kitRaw.agent ?? {};
+  return { kitPath: `mongodb/kits/${KIT_KEY}`, hasApiKey: API_KEY !== '', kit: { ...kitRaw, agent: agentRest }, system_prompt: systemPrompt, crmEvents: CRM_EVENTS };
 }
 
 app.get('/api/agent', (_req, res) => {
-  const { raw, systemPrompt } = readKitFile();
-  res.json({ kitPath: KIT, hasApiKey: API_KEY !== '', kit: raw, system_prompt: systemPrompt, crmEvents: CRM_EVENTS });
+  res.json(agentPayload());
 });
 
-app.put('/api/agent', (req, res) => {
+app.put('/api/agent', async (req, res) => {
   const kit = req.body?.kit;
   const systemPrompt = req.body?.system_prompt;
   if (!kit || typeof kit !== 'object' || !kit.agent || !kit.kit || typeof systemPrompt !== 'string') {
     return res.status(400).json({ error: 'Esperado { kit: { key, kit, agent }, system_prompt: string }' });
   }
-  const file = kit.agent.system_prompt_file;
-  if (file) {
-    delete kit.agent.system_prompt;
-    writeFileSync(join(dirname(KIT), file), systemPrompt, 'utf8');
-  } else {
-    kit.agent.system_prompt = systemPrompt;
-  }
-  writeFileSync(KIT, JSON.stringify(kit, null, 2) + '\n', 'utf8');
+  delete kit.agent.system_prompt_file;
+  kit.agent.system_prompt = systemPrompt;
   try {
-    agent = loadKitAgent(KIT, API_KEY);
+    kitToAgent(kit, API_KEY); // valida antes de gravar
+    await saveKit(KIT_KEY, kit);
+    await reloadAgent();
   } catch (e) {
-    return res.status(500).json({ error: `Salvo, mas falhou ao recarregar: ${(e as Error).message}` });
+    return res.status(500).json({ error: `Falhou ao salvar/recarregar: ${(e as Error).message}` });
   }
-  const { raw, systemPrompt: sp } = readKitFile();
-  res.json({ kitPath: KIT, hasApiKey: API_KEY !== '', kit: raw, system_prompt: sp, crmEvents: CRM_EVENTS });
+  res.json(agentPayload());
 });
 
 // ---------- Mídia do kit (áudios/vídeos da recepção, biblioteca) ----------
-// Arquivos ficam em <pasta do kit>/media e são referenciados no kit.json como "media/<arquivo>".
+// Arquivos ficam no MinIO em kits/<kit>/media/ e são referenciados no kit como "media/<arquivo>".
 
-const KIT_DIR = dirname(KIT);
-const MEDIA_DIR = join(KIT_DIR, 'media');
 const ALLOWED_MEDIA = /^(audio|video|image)\/|^application\/pdf$/;
 
-app.post('/api/agent/media', express.raw({ type: () => true, limit: '100mb' }), (req, res) => {
+app.post('/api/agent/media', express.raw({ type: () => true, limit: '100mb' }), async (req, res) => {
   const mime = String(req.headers['content-type'] ?? '');
   if (!ALLOWED_MEDIA.test(mime)) return res.status(415).json({ error: `Tipo não suportado: ${mime || 'desconhecido'}` });
   const original = decodeURIComponent(String(req.query.name ?? 'arquivo'));
   const safe = original.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]+/g, '-').slice(-80);
   const fileName = `${Date.now()}-${safe}`;
-  mkdirSync(MEDIA_DIR, { recursive: true });
-  writeFileSync(join(MEDIA_DIR, fileName), req.body as Buffer);
+  await putObject(`kits/${KIT_KEY}/media/${fileName}`, req.body as Buffer, mime);
   res.json({ path: `media/${fileName}`, mime, file_name: original, size: (req.body as Buffer).length });
 });
 
-app.get('/api/kit-file', (req, res) => {
+app.get('/api/kit-file', async (req, res) => {
   const rel = String(req.query.path ?? '');
-  const full = resolve(KIT_DIR, rel);
-  if (!rel || !full.startsWith(resolve(MEDIA_DIR) + sep) || !existsSync(full)) return res.sendStatus(404);
-  res.sendFile(full);
+  const key = rel.startsWith('media/') ? objectKeyFor(rel, KIT_KEY) : null;
+  if (!key) return res.sendStatus(404);
+  await sendObject(key, req, res);
 });
 
 // ---------- Custo da conversa (tokens → US$ → R$) ----------
@@ -263,6 +262,7 @@ const subscribers = new Map<string, Set<express.Response>>();
 const turns = new Map<string, { running: boolean; again: boolean; timer: NodeJS.Timeout | null }>();
 
 function publish(s: Session) {
+  sessionRepo.touch(s);
   const subs = subscribers.get(s.id);
   if (!subs?.size) return;
   const data = `data: ${JSON.stringify(view(s))}\n\n`;
@@ -297,8 +297,8 @@ function scheduleTurn(s: Session) {
   }, SIM_DEBOUNCE_MS);
 }
 
-app.get('/api/sessions/:id/stream', (req, res) => {
-  const s = getSession(req.params.id);
+app.get('/api/sessions/:id/stream', async (req, res) => {
+  const s = await sessionRepo.get(req.params.id);
   if (!s) return res.sendStatus(404);
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
   res.flushHeaders();
@@ -310,26 +310,27 @@ app.get('/api/sessions/:id/stream', (req, res) => {
   req.on('close', () => { clearInterval(ping); set.delete(res); });
 });
 
-app.post('/api/sessions', (req, res) => {
-  if (!allowNewSession(req.ip ?? '?')) return res.status(429).json({ error: 'Muitas conversas de teste em pouco tempo. Tente de novo mais tarde.' });
-  const s = createSession(agent.id, req.body?.phone, req.body?.custom_fields ?? {});
+app.post('/api/sessions', async (req, res) => {
+  if (!(await allowNewSession(req.ip ?? '?'))) return res.status(429).json({ error: 'Muitas conversas de teste em pouco tempo. Tente de novo mais tarde.' });
+  const s = await sessionRepo.add(createSession(agent.id, req.body?.phone, req.body?.custom_fields ?? {}));
   res.json(view(s));
 });
 
-app.get('/api/sessions/:id', (req, res) => {
-  const s = getSession(req.params.id);
+app.get('/api/sessions/:id', async (req, res) => {
+  const s = await sessionRepo.get(req.params.id);
   s ? res.json(view(s)) : res.sendStatus(404);
 });
 
-app.post('/api/sessions/:id/reset', (req, res) => {
-  if (!allowNewSession(req.ip ?? '?')) return res.status(429).json({ error: 'Muitas conversas de teste em pouco tempo. Tente de novo mais tarde.' });
-  const old = getSession(req.params.id);
-  deleteSession(req.params.id);
-  res.json(view(createSession(agent.id, old?.phone, req.body?.custom_fields ?? {})));
+app.post('/api/sessions/:id/reset', async (req, res) => {
+  if (!(await allowNewSession(req.ip ?? '?'))) return res.status(429).json({ error: 'Muitas conversas de teste em pouco tempo. Tente de novo mais tarde.' });
+  const old = await sessionRepo.get(req.params.id);
+  await sessionRepo.delete(req.params.id);
+  const s = await sessionRepo.add(createSession(agent.id, old?.phone, req.body?.custom_fields ?? {}));
+  res.json(view(s));
 });
 
 app.post('/api/sessions/:id/messages', async (req, res) => {
-  const s = getSession(req.params.id);
+  const s = await sessionRepo.get(req.params.id);
   if (!s) return res.sendStatus(404);
   if (tooManyMessages(s)) return res.status(429).json({ error: LIMIT_MSG });
 
@@ -348,7 +349,7 @@ const EXT_BY_MIME: Record<string, string> = {
 };
 
 app.post('/api/sessions/:id/file', express.raw({ type: () => true, limit: '50mb' }), async (req, res) => {
-  const s = getSession(req.params.id);
+  const s = await sessionRepo.get(req.params.id);
   if (!s) return res.sendStatus(404);
   if (tooManyMessages(s)) return res.status(429).json({ error: LIMIT_MSG });
   const mime = String(req.headers['content-type'] ?? '').split(';')[0].trim();
@@ -356,9 +357,8 @@ app.post('/api/sessions/:id/file', express.raw({ type: () => true, limit: '50mb'
   const data = req.body as Buffer;
   if (!data?.length) return res.status(400).json({ error: 'Arquivo vazio' });
 
-  mkdirSync(SIM_MEDIA_DIR, { recursive: true });
   const fileName = `${s.id.slice(0, 8)}-${Date.now()}.${EXT_BY_MIME[mime]}`;
-  writeFileSync(join(SIM_MEDIA_DIR, fileName), data);
+  await putObject(`sim/${fileName}`, data, mime);
 
   const caption = decodeURIComponent(String(req.query.caption ?? '')).trim();
   const original = decodeURIComponent(String(req.query.name ?? '')).trim();
@@ -391,7 +391,7 @@ async function ingest(s: Session, msg: SimMessage, res: express.Response) {
 // entra no fluxo. Sem transcrição o motor trata como mídia ilegível (passa para humano), igual produção.
 
 app.post('/api/sessions/:id/audio', express.raw({ type: () => true, limit: '25mb' }), async (req, res) => {
-  const s = getSession(req.params.id);
+  const s = await sessionRepo.get(req.params.id);
   if (!s) return res.sendStatus(404);
   if (tooManyMessages(s)) return res.status(429).json({ error: LIMIT_MSG });
   const mime = String(req.headers['content-type'] ?? 'audio/webm');
@@ -399,9 +399,8 @@ app.post('/api/sessions/:id/audio', express.raw({ type: () => true, limit: '25mb
   const audio = req.body as Buffer;
   if (!audio?.length) return res.status(400).json({ error: 'Áudio vazio' });
 
-  mkdirSync(SIM_MEDIA_DIR, { recursive: true });
   const fileName = `${s.id.slice(0, 8)}-${Date.now()}.${extForMime(mime)}`;
-  writeFileSync(join(SIM_MEDIA_DIR, fileName), audio);
+  await putObject(`sim/${fileName}`, audio, mime.split(';')[0].trim());
 
   const msg = appendUser(s, { type: 'audio', body: '', mediaPath: `sim/${fileName}` }) as SimMessage & { transcribing?: boolean };
   msg.transcribing = true;
@@ -417,12 +416,36 @@ app.post('/api/sessions/:id/audio', express.raw({ type: () => true, limit: '25mb
   return ingest(s, msg, res);
 });
 
-app.get('/api/sim-file', (req, res) => {
-  const rel = String(req.query.path ?? '').replace(/^sim\//, '');
-  const full = resolve(SIM_MEDIA_DIR, rel);
-  if (!rel || !full.startsWith(resolve(SIM_MEDIA_DIR) + sep) || !existsSync(full)) return res.sendStatus(404);
-  res.sendFile(full, { dotfiles: 'allow' }); // a pasta é ".sim-media"; o Express bloqueia dotfiles por padrão
+app.get('/api/sim-file', async (req, res) => {
+  const rel = String(req.query.path ?? '');
+  const key = objectKeyFor(rel.startsWith('sim/') ? rel : `sim/${rel}`, KIT_KEY);
+  if (!key || key === 'sim/') return res.sendStatus(404);
+  await sendObject(key, req, res);
 });
 
-const port = Number(process.env.PORT ?? 3000);
-app.listen(port, () => console.log(`Simulador em http://localhost:${port}`));
+// ---------- Subida ----------
+
+async function main() {
+  await connectAll();
+  KIT_KEY = await ensureKit(KIT_SEED, KIT_KEY || undefined);
+  await reloadAgent();
+  setInterval(() => sessionRepo.evictIdle((id) => !!turns.get(id)?.running || !!subscribers.get(id)?.size), 5 * 60 * 1000).unref();
+
+  const port = Number(process.env.PORT ?? 3000);
+  const server = app.listen(port, () => console.log(`Simulador em http://localhost:${port} (kit ${KIT_KEY})`));
+
+  const shutdown = async (sig: string) => {
+    console.log(`${sig}: gravando sessões e desligando…`);
+    server.close();
+    await sessionRepo.flush();
+    await disconnectAll();
+    process.exit(0);
+  };
+  process.on('SIGINT', () => void shutdown('SIGINT'));
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+}
+
+main().catch((e) => {
+  console.error('Falha ao subir:', e);
+  process.exit(1);
+});

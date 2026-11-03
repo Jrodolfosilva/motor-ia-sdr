@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/dist-embed
+**/.env
+**/.sim-media
+**/*.bak
+**/*.log
+.git
+*.tar
+docs
+referencia-laravel

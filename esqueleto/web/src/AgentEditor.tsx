@@ -317,7 +317,7 @@ export default function AgentEditor() {
             <>
               <h2>System prompt do responder</h2>
               <p className="muted">
-                {a.system_prompt_file ? <>Salvo em <code>{a.system_prompt_file}</code>, ao lado do kit.json.</> : 'Salvo dentro do kit.json.'}
+                Salvo no MongoDB, junto com o kit (coleção <code>kits</code>).
               </p>
               <textarea className="mono prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} spellCheck={false} />
             </>

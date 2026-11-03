@@ -6,3 +6,4 @@ dist-embed
 *.bak
 *.log
 .DS_Store
+*.tar

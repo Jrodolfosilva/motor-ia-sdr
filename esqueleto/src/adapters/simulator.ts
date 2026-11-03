@@ -1,5 +1,5 @@
-// FASE 1: adapters em memória para o chat simulador.
-// Troque o Map por Postgres (tabela playground_sessions) quando quiser persistir.
+// Adapters do chat simulador sobre um objeto Session em memória.
+// O servidor persiste a Session no MongoDB (adapters/sessionRepo.ts); os testes usam só a memória.
 import { randomUUID } from 'node:crypto';
 import type {
   Agent, ChannelPort, ConversationState, ConversationStore, EngineEvent, LlmProvider,

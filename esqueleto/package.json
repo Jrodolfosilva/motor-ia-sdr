@@ -11,6 +11,9 @@
   "dependencies": {
     "@napi-rs/canvas": "^0.1.65",
     "express": "^5.1.0",
+    "ioredis": "^6.0.0",
+    "minio": "^8.0.7",
+    "mongoose": "^9.11.4",
     "unpdf": "^0.12.1"
   },
   "devDependencies": {

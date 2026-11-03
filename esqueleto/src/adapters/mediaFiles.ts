@@ -13,15 +13,20 @@ export const mimeForPath = (p: string) => MIME_BY_EXT[extname(p).toLowerCase()] 
 
 /** `roots` mapeia prefixo do caminho ("sim/") para a pasta real. Bloqueia sair da pasta. */
 export function localMediaFiles(roots: Record<string, string>): MediaFiles {
+  return createMediaFiles(async (path) => {
+    const prefix = Object.keys(roots).find((p) => path.startsWith(p));
+    if (!prefix) return null;
+    const dir = resolve(roots[prefix]);
+    const full = resolve(dir, path.slice(prefix.length));
+    if (!full.startsWith(dir + sep) || !existsSync(full)) return null;
+    return { data: readFileSync(full), mime: mimeForPath(full) };
+  });
+}
+
+/** Leitura de arquivo injetada (MinIO em produção, disco em testes) + utilitários de PDF. */
+export function createMediaFiles(read: MediaFiles['read']): MediaFiles {
   return {
-    async read(path) {
-      const prefix = Object.keys(roots).find((p) => path.startsWith(p));
-      if (!prefix) return null;
-      const dir = resolve(roots[prefix]);
-      const full = resolve(dir, path.slice(prefix.length));
-      if (!full.startsWith(dir + sep) || !existsSync(full)) return null;
-      return { data: readFileSync(full), mime: mimeForPath(full) };
-    },
+    read,
 
     async pdfText(data, maxPages) {
       const { getDocumentProxy } = await import('unpdf');
