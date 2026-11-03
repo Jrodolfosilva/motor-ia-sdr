@@ -1,0 +1,55 @@
+{
+    "kit": {
+        "name": "Hub Salário-Maternidade - Mais Auxílio Brasil",
+        "company_info": "MAIS AUXÍLIO BRASIL LTDA (CNPJ 64.769.970/0001-39) - assessoria jurídica especializada em salário-maternidade (gestante, mães com filhos de até 5 anos, adoção).\nAdvogado responsável: Dr. Fábio Kazuo Higa, OAB nº 271009.\nAtendimento 100% online, pelo WhatsApp, para todo o Brasil. Equipe jurídica: Greice e Thasla.\nHonorários: 30% do valor recebido (porcentagem padrão da OAB), cobrados SOMENTE quando o benefício for concedido - se não for aprovado, a cliente não paga nada. A análise é gratuita.\nValor de referência do benefício: mínimo de R$ 6 mil, podendo chegar a R$ 14.900 - algumas mães recebem de uma vez, outras em até 4 vezes. É referência, nunca promessa.\nComo recebe: quando o benefício é concedido, a equipe informa local, data e horário; o saque é feito no banco mais próximo da residência, com os documentos originais e com foto.\nPrimeiro contato da equipe após a assinatura: de 5 a 7 dias.\nProva social: mais de 5 mil mães já receberam com a Mais Auxílio Brasil.",
+        "faq": [
+            {
+                "question": "Vocês cobram para analisar meu caso?",
+                "answer": "Não, a análise é gratuita."
+            },
+            {
+                "question": "Quanto vou pagar de honorários?",
+                "answer": "30% do valor do benefício, que é a porcentagem padrão da OAB - e só quando você receber. Se não for concedido, não tem custo nenhum, fique tranquila."
+            },
+            {
+                "question": "Tenho que pagar alguma coisa agora?",
+                "answer": "Não! Nenhum pagamento antecipado. O honorário só é descontado do valor total quando o benefício for liberado."
+            },
+            {
+                "question": "Quanto vou receber?",
+                "answer": "Depende das suas contribuições. Como referência, o mínimo é de R$ 6 mil e pode chegar a R$ 14.900 - algumas mães recebem de uma vez, outras em até 4 vezes. A equipe confirma o valor certinho na análise."
+            },
+            {
+                "question": "Como eu recebo o dinheiro?",
+                "answer": "Quando o benefício for concedido, a gente te informa o local, a data e o horário. O saque é feito no banco mais próximo da sua casa, com seus documentos originais com foto."
+            },
+            {
+                "question": "Quanto tempo demora?",
+                "answer": "Depois da assinatura, o primeiro contato da equipe é de 5 a 7 dias. O prazo total varia de caso pra caso."
+            },
+            {
+                "question": "O atendimento é presencial?",
+                "answer": "Não, é tudo online, aqui pelo WhatsApp, e atendemos o Brasil todo."
+            },
+            {
+                "question": "Já tive o bebê, ainda dá pra pedir?",
+                "answer": "Sim! Mães com filhos de até 5 anos ainda podem pedir - quanto antes, melhor."
+            },
+            {
+                "question": "Vocês são confiáveis?",
+                "answer": "Somos a Mais Auxílio Brasil, CNPJ 64.769.970/0001-39, com o Dr. Fábio Kazuo Higa (OAB nº 271009) como advogado responsável. Mais de 5 mil mães já receberam com a gente 🥰"
+            }
+        ]
+    },
+    "sdr": {
+        "name": "Bella",
+        "greeting_example": "Olá, tudo bem? ❤️ Meu nome é Bella, sou assessora jurídica da Mais Auxílio Brasil. Somos especializados em salário-maternidade 🤰🏻🤱🏻",
+        "consent_message": "Vou te fazer algumas confirmações rapidinhas pra saber se você tem direito, tá bem?",
+        "handoff_message": "Perfeito, já tenho tudo para a sua pré-análise 💛 Agora {atendente} segue com você no comprovante de residência, RG/CPF e no contrato. Lembrando: honorário só se o benefício for concedido - se não for, você não paga nada 🙏🏼"
+    },
+    "system_prompt_replacements": {
+        "[Nome da atendente]": "Bella",
+        "[Nome do Escritório]": "Mais Auxílio Brasil",
+        "[faixa]": "R$ 6 mil e R$ 14.900"
+    }
+}
