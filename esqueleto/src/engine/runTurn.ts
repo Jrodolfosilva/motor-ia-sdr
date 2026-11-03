@@ -22,6 +22,8 @@ const DEFAULT_REACT_TYPES = ['ultrassom', 'cartao_gestante', 'teste_gravidez', '
 export const VIDEO_HISTORY_LINE = '[Vídeo enviado pela lead - você não assiste vídeos]';
 export const AUDIO_FAIL_LINE = '[Áudio enviado pela lead que não deu para entender]';
 export const FILE_FAIL_LINE = '[Arquivo enviado pela lead que não deu para abrir/ler]';
+export const PROACTIVE_OPENING_LINE =
+  '[A lead preencheu o formulário e ainda não mandou mensagem. Você inicia o atendimento: continue a partir das mensagens acima, confirmando os dados do formulário.]';
 
 // ---------------------------------------------------------------------------
 // ETAPA A: intake (chamado quando a mensagem chega, antes do debounce)
@@ -111,9 +113,11 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
     || ((m.type === 'image' || m.type === 'document') && (!m.aiAnalysis || 'failed' in m.aiAnalysis)));
 
   // 5. recepção por cenário (texto/áudio/vídeo fixos; sempre sai inteira, sem abortar)
+  const isCold = !new RequiredFieldsStatus(agent.required_fields, known, agent.required_documents).hasAnyKnownData();
+  // abertura ativa: lead de formulário que ainda não escreveu nada → a IA puxa a conversa
+  const proactive = turnsCount === 1 && !isCold && !(await store.lastInboundId());
   if (turnsCount === 1) {
     await fireCrm(ctx, 'atendimento_iniciado');
-    const isCold = !new RequiredFieldsStatus(agent.required_fields, known, agent.required_documents).hasAnyKnownData();
     const scenario = receptionFor(agent, isCold ? 'volume' : 'form');
     if (scenario.messages.length) {
       await sendReception(ctx, scenario, contact.phone);
@@ -127,6 +131,7 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
   // 6. histórico
   const messages = await store.recentMessages(HISTORY_LIMIT);
   const history = buildHistory(messages);
+  if (proactive && !history.some((m) => m.role === 'user')) history.push({ role: 'user', content: PROACTIVE_OPENING_LINE });
   while (history.length && history[history.length - 1].role === 'assistant') history.pop();
   if (history.length === 0) return;
 
@@ -190,10 +195,11 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
     if (agent.required_documents.length && agent.required_documents.every((d) => filled(known[d.key]))) await fireCrm(ctx, 'documentos_completos');
     for (const k of Object.keys(ex.pending)) await fireCrm(ctx, `pendencia_registrada:${k}`);
 
-    const q = await decide(llm, agent, history, known, ctx.now, progress());
-    if (q.log) await ctx.usage.record(q.log, userMessage ?? null);
+    // abertura ativa: a lead ainda não disse nada → não há o que classificar
+    const q = proactive ? null : await decide(llm, agent, history, known, ctx.now, progress());
+    if (q?.log) await ctx.usage.record(q.log, userMessage ?? null);
 
-    if (q.decision.classification) {
+    if (q?.decision.classification) {
       const label = agent.classification_labels.find((l) => l.key === q.decision.classification);
       const isDisqualify = label?.outcome === 'disqualify';
       const rejectedByRule = isDisqualify && !!label?.rules?.length && !rulesMatch(label.rules, known, ctx.now);

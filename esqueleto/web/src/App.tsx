@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Activity, Bot, Calculator, MessageCircle, Menu, X } from 'lucide-react';
+import { Activity, Bot, Calculator, LogOut, MessageCircle, Menu, X } from 'lucide-react';
 import Simulator from './Simulator';
+import Login from './Login';
+import { api, type AuthUser } from './api';
 import AgentEditor from './AgentEditor';
 import CostEstimator from './CostEstimator';
 
@@ -21,6 +23,22 @@ const TITLES: Record<Tab, { title: string; sub: string }> = {
 };
 
 export default function App() {
+  const [user, setUser] = useState<AuthUser | null | undefined>(undefined); // undefined = verificando
+  useEffect(() => {
+    api.me().then(setUser).catch(() => setUser(null));
+    const onExpired = () => setUser(null);
+    window.addEventListener('hub-auth-required', onExpired);
+    return () => window.removeEventListener('hub-auth-required', onExpired);
+  }, []);
+
+  if (user === undefined) return <div className="login-page" />;
+  if (!user) return <Login onLogin={setUser} />;
+  return <Panel user={user} onLogout={() => { api.logout().finally(() => setUser(null)); }} />;
+}
+
+const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
+
+function Panel({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>(fromHash);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -49,7 +67,7 @@ export default function App() {
             </a>
           ))}
         </nav>
-        <div className="sidebar-foot">Fase 1 · simulador local</div>
+        <div className="sidebar-foot">Fase 1 · simulador</div>
       </aside>
       <div className="backdrop" onClick={() => setMenuOpen(false)} />
 
@@ -60,11 +78,12 @@ export default function App() {
           </button>
           <div className="topbar-title">{TITLES[tab].title}</div>
           <div className="user-chip">
-            <span className="user-avatar">HI</span>
+            <span className="user-avatar">{initials(user.name)}</span>
             <span className="user-meta">
-              <strong>Ambiente local</strong>
-              <small>sem login</small>
+              <strong>{user.name}</strong>
+              <small>{user.email}</small>
             </span>
+            <button className="icon-btn" onClick={onLogout} aria-label="Sair" title="Sair"><LogOut size={16} /></button>
           </div>
         </header>
 

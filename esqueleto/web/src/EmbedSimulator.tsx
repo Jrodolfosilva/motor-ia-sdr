@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { RotateCcw, Users, Zap } from 'lucide-react';
 import { api, type RequiredDocument, type Session } from './api';
-import Phone from './Phone';
+import Phone, { COLD_LEAD_DRAFT } from './Phone';
 
 type LeadKind = 'form' | 'frio';
 
@@ -29,6 +29,8 @@ export default function EmbedSimulator({ options }: { options: EmbedOptions }) {
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const started = useRef(false);
+  const [kicking, setKicking] = useState(false);
+  useEffect(() => setKicking(false), [session?.id]);
 
   const fail = (e: unknown) => {
     const msg = e instanceof Error ? e.message : String(e);
@@ -64,6 +66,14 @@ export default function EmbedSimulator({ options }: { options: EmbedOptions }) {
 
   const optimistic = (m: Session['messages'][number]) =>
     setSession((s) => (s ? { ...s, messages: [...s.messages, m] } : s));
+  // conversa ainda vazia: lead frio já vem com a 1ª mensagem escrita; lead de formulário tem "Iniciar"
+  const hasForm = Object.keys(session?.customFields ?? {}).length > 0;
+  const untouched = !!session && session.messages.length === 0 && (session.state.turnsCount ?? 0) === 0;
+  const kick = () => {
+    if (!session) return;
+    setKicking(true);
+    api.start(session.id).catch(fail);
+  };
   const tmp = () => ({ id: `tmp-${Date.now()}`, role: 'user' as const, createdAt: new Date().toISOString() });
 
   return (
@@ -87,6 +97,9 @@ export default function EmbedSimulator({ options }: { options: EmbedOptions }) {
       </div>
 
       <Phone
+        key={session?.id}
+        draft={untouched && !hasForm ? COLD_LEAD_DRAFT : ''}
+        startButton={untouched && hasForm ? { label: kicking ? 'Iniciando…' : 'Iniciar', disabled: kicking, onClick: kick } : null}
         contactName={agentName}
         messages={session?.messages ?? []}
         typing={session?.typing || false}

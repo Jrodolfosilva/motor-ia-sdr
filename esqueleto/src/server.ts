@@ -21,6 +21,7 @@ import { ensureKit, getKit, saveKit } from './adapters/kitRepo';
 import { sessionRepo } from './adapters/sessionRepo';
 import { getObject, objectKeyFor, putObject, sendObject } from './adapters/storage';
 import { allowHit } from './adapters/rateLimit';
+import { authRouter, currentUser, requireAdmin } from './auth/auth';
 
 function kitToAgent(raw: Record<string, any>, apiKey: string): Agent {
   const a = raw.agent;
@@ -67,6 +68,12 @@ const vision: MediaAnalyzerPort = createMediaAnalyzer(llm, createMediaFiles(asyn
 const app = express();
 app.set('trust proxy', true); // IP real atrás de proxy (Render/Railway/Nginx) para os limites
 app.use(express.json());
+app.use('/api/auth', authRouter);
+// painel: configuração do agente e custos só com login (admin)
+app.use(['/api/agent', '/api/cost'], requireAdmin);
+// conversas são públicas (embed), mas prompts/logs só aparecem para quem está logado
+app.use('/api/sessions', async (req, _res, next) => { try { await currentUser(req); next(); } catch (e) { next(e); } });
+const isAdmin = (req: express.Request) => !!(req as any)._authUser;
 // App React compilado (web/dist) quando existe (Docker); senão o chat simples de public/.
 const WEB_DIST = join(__dirname, '../web/dist');
 if (existsSync(WEB_DIST)) app.use(express.static(WEB_DIST));
@@ -247,8 +254,8 @@ app.get('/api/cost/baseline', async (_req, res) => {
   });
 });
 
-function view(s: Session) {
-  if (PUBLIC_DEMO) return { ...s, logs: [], cost: computeCost(s) }; // sem prompts para fora
+function view(s: Session, admin = false) {
+  if (PUBLIC_DEMO || !admin) return { ...s, logs: [], cost: computeCost(s) }; // sem prompts para fora
   return { ...s, logs: s.logs.map(({ raw: _raw, ...l }) => l), cost: computeCost(s) };
 }
 
@@ -258,15 +265,18 @@ function view(s: Session) {
 
 const SIM_DEBOUNCE_MS = Number(process.env.SIM_DEBOUNCE_MS ?? 1500); // junta rajada de mensagens
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-const subscribers = new Map<string, Set<express.Response>>();
+const subscribers = new Map<string, Set<{ res: express.Response; admin: boolean }>>();
 const turns = new Map<string, { running: boolean; again: boolean; timer: NodeJS.Timeout | null }>();
 
 function publish(s: Session) {
   sessionRepo.touch(s);
   const subs = subscribers.get(s.id);
   if (!subs?.size) return;
-  const data = `data: ${JSON.stringify(view(s))}\n\n`;
-  for (const res of subs) res.write(data);
+  const cache: Partial<Record<'admin' | 'public', string>> = {};
+  for (const sub of subs) {
+    const k = sub.admin ? 'admin' : 'public';
+    sub.res.write((cache[k] ??= `data: ${JSON.stringify(view(s, sub.admin))}\n\n`));
+  }
 }
 
 function contextFor(s: Session) {
@@ -274,7 +284,7 @@ function contextFor(s: Session) {
 }
 
 /** Agenda um turno (debounce). Se já há turno rodando, roda outro assim que ele terminar. */
-function scheduleTurn(s: Session) {
+function scheduleTurn(s: Session, delayMs = SIM_DEBOUNCE_MS) {
   const t = turns.get(s.id) ?? { running: false, again: false, timer: null };
   turns.set(s.id, t);
   if (t.timer) clearTimeout(t.timer);
@@ -294,7 +304,7 @@ function scheduleTurn(s: Session) {
       s.typing = false;
       publish(s);
     }
-  }, SIM_DEBOUNCE_MS);
+  }, delayMs);
 }
 
 app.get('/api/sessions/:id/stream', async (req, res) => {
@@ -302,23 +312,24 @@ app.get('/api/sessions/:id/stream', async (req, res) => {
   if (!s) return res.sendStatus(404);
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
   res.flushHeaders();
-  res.write(`data: ${JSON.stringify(view(s))}\n\n`);
+  const sub = { res, admin: isAdmin(req) };
+  res.write(`data: ${JSON.stringify(view(s, sub.admin))}\n\n`);
   const set = subscribers.get(s.id) ?? new Set();
-  set.add(res);
+  set.add(sub);
   subscribers.set(s.id, set);
   const ping = setInterval(() => res.write(': ping\n\n'), 25000);
-  req.on('close', () => { clearInterval(ping); set.delete(res); });
+  req.on('close', () => { clearInterval(ping); set.delete(sub); });
 });
 
 app.post('/api/sessions', async (req, res) => {
   if (!(await allowNewSession(req.ip ?? '?'))) return res.status(429).json({ error: 'Muitas conversas de teste em pouco tempo. Tente de novo mais tarde.' });
   const s = await sessionRepo.add(createSession(agent.id, req.body?.phone, req.body?.custom_fields ?? {}));
-  res.json(view(s));
+  res.json(view(s, isAdmin(req)));
 });
 
 app.get('/api/sessions/:id', async (req, res) => {
   const s = await sessionRepo.get(req.params.id);
-  s ? res.json(view(s)) : res.sendStatus(404);
+  s ? res.json(view(s, isAdmin(req))) : res.sendStatus(404);
 });
 
 app.post('/api/sessions/:id/reset', async (req, res) => {
@@ -326,7 +337,16 @@ app.post('/api/sessions/:id/reset', async (req, res) => {
   const old = await sessionRepo.get(req.params.id);
   await sessionRepo.delete(req.params.id);
   const s = await sessionRepo.add(createSession(agent.id, old?.phone, req.body?.custom_fields ?? {}));
-  res.json(view(s));
+  res.json(view(s, isAdmin(req)));
+});
+
+// Lead de formulário: o botão "Iniciar" do simulador faz a IA abrir a conversa (sem mensagem do lead).
+app.post('/api/sessions/:id/start', async (req, res) => {
+  const s = await sessionRepo.get(req.params.id);
+  if (!s) return res.sendStatus(404);
+  const untouched = s.state.status === 'active' && s.state.turnsCount === 0 && !s.messages.some((m) => m.role === 'user');
+  if (untouched && !turns.get(s.id)?.running) scheduleTurn(s, 0);
+  res.status(202).json(view(s, isAdmin(req)));
 });
 
 app.post('/api/sessions/:id/messages', async (req, res) => {
@@ -378,12 +398,12 @@ async function ingest(s: Session, msg: SimMessage, res: express.Response) {
 
   if (s.state.status !== 'active') {
     await ctx.pipeline.emitEvent({ kind: 'info', message: 'A conversa já foi encerrada pela IA. Clique em "Reiniciar" para testar de novo.' });
-    return res.json(view(s));
+    return res.json(view(s, isAdmin(res.req)));
   }
 
   const decision = await intake(ctx, msg, true);
   if (decision === 'schedule') scheduleTurn(s);
-  res.status(202).json(view(s));
+  res.status(202).json(view(s, isAdmin(res.req)));
 }
 
 // ---------- Áudio gravado no simulador (microfone) ----------

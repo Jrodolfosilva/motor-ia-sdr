@@ -22,6 +22,11 @@ Atributos opcionais no `<script>`:
 | `data-target` | Seletor de onde desenhar | `#hub-ia-simulador` |
 | `data-api` | URL do servidor, se for diferente da origem do script | origem do script |
 
+Início da conversa:
+- **Lead frio**: a caixa de mensagem já vem escrita com "Olá, gostaria de mais informações sobre salário-maternidade"; é só enviar.
+- **Lead de formulário**: aparece o botão **Iniciar** no lugar da caixa; ao clicar, a IA abre a conversa
+  (recepção do cenário `form` + confirmação dos dados), sem esperar mensagem (`POST /api/sessions/:id/start`).
+
 Página pronta para mandar o link direto: `https://SEU-SERVIDOR/demo`.
 
 O simulador roda dentro de Shadow DOM: o CSS da página não quebra o simulador e vice-versa.
@@ -62,10 +67,12 @@ só funciona em página HTTPS.
 - O editor do agente e a calculadora **não** funcionam nesse servidor: configure o agente numa
   instância interna (sem `PUBLIC_DEMO`) e suba o `kit.json` junto.
 
-## Limitações atuais (Fase 1)
+## Persistência (Docker)
 
-- Conversas ficam em memória: reiniciar o servidor apaga as conversas abertas (o simulador
-  mostra "Esta conversa expirou. Clique em Recomeçar").
-- Limites também em memória, por instância. Com mais de uma instância, mover para Redis.
-- Arquivos que a lead manda ficam em `esqueleto/.sim-media/` (limpar de tempos em tempos).
+Com `docker compose up -d --build` (raiz do repo) o script já sai compilado na imagem e servido em
+`/embed/hub-ia-simulador.js`. Para modo público, coloque `PUBLIC_DEMO=1` (e `CORS_ORIGINS`) no `esqueleto/.env`.
+
+- Conversas no MongoDB (`playground_sessions`): reiniciar o servidor não apaga conversas abertas.
+- Limites por IP no Redis: valem para todas as instâncias.
+- Arquivos que a lead manda no MinIO (`sim/`): limpar de tempos em tempos (regra de expiração do bucket).
 - Cada conversa de teste gasta créditos do Together (~R$ 0,15 a 0,45 por conversa completa).

@@ -14,6 +14,10 @@ interface Props {
   onSendFile: (file: File, caption: string) => void;
   /** Áudio gravado no microfone ou arquivo de áudio (transcrito no servidor). */
   onSendAudio: (audio: Blob) => void;
+  /** Texto já escrito na caixa de mensagem (muda quando a conversa recomeça). */
+  draft?: string;
+  /** No lugar da caixa de mensagem, um botão (ex: "Iniciar" para lead de formulário). */
+  startButton?: { label: string; onClick: () => void; disabled?: boolean } | null;
 }
 
 const hhmm = (iso?: string) => {
@@ -141,8 +145,12 @@ function AnalysisLine({ m }: { m: SimMessage }) {
   );
 }
 
-export default function Phone({ contactName, messages, typing, closed, documents, onSend, onSendFile, onSendAudio }: Props) {
-  const [text, setText] = useState('');
+/** Primeira mensagem sugerida para o lead frio (já vem escrita na caixa). */
+export const COLD_LEAD_DRAFT = 'Olá, gostaria de mais informações sobre salário-maternidade';
+
+export default function Phone({ contactName, messages, typing, closed, documents, onSend, onSendFile, onSendAudio, draft, startButton }: Props) {
+  const [text, setText] = useState(draft ?? '');
+  useEffect(() => { setText(draft ?? ''); }, [draft]);
   const [picked, setPicked] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const mic = useRecorder(onSendAudio);
@@ -283,7 +291,13 @@ export default function Phone({ contactName, messages, typing, closed, documents
           <div className="wa-mic-error" onClick={() => { mic.clearError(); setFileError(null); }}>{mic.error ?? fileError}</div>
         )}
 
-        {mic.recording ? (
+        {startButton ? (
+          <div className="wa-input wa-start">
+            <button type="button" className="wa-start-btn" onClick={startButton.onClick} disabled={startButton.disabled}>
+              {startButton.label}
+            </button>
+          </div>
+        ) : mic.recording ? (
           <div className="wa-input wa-recbar">
             <button type="button" className="wa-rec-trash" onClick={() => mic.stop(false)} aria-label="Descartar"><Trash2 size={19} /></button>
             <div className="wa-rec-info"><span className="wa-rec-dot" /> {mmss(mic.seconds)}</div>

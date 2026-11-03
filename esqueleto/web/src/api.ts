@@ -237,6 +237,8 @@ async function req<T>(path: string, body?: unknown, method?: string): Promise<T>
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!r.ok) {
+    // sessão do painel expirou → App volta para a tela de login
+    if (r.status === 401 && !path.startsWith('/api/auth/')) window.dispatchEvent(new Event('hub-auth-required'));
     let msg = `${r.status} ${r.statusText}`;
     try { msg = (await r.json()).error ?? msg; } catch { /* corpo não-JSON */ }
     throw new Error(msg);
@@ -244,7 +246,12 @@ async function req<T>(path: string, body?: unknown, method?: string): Promise<T>
   return r.json();
 }
 
+export interface AuthUser { id: string; name: string; email: string; role: 'admin' }
+
 export const api = {
+  me: () => req<{ user: AuthUser }>('/api/auth/me').then((r) => r.user),
+  login: (email: string, code: string) => req<{ user: AuthUser }>('/api/auth/login', { email, code }).then((r) => r.user),
+  logout: () => req<{ ok: true }>('/api/auth/logout', {}),
   create: (phone: string, custom_fields: Record<string, unknown> = {}) =>
     req<Session>('/api/sessions', { phone, custom_fields }),
   send: (id: string, body: string) => req<Session>(`/api/sessions/${id}/messages`, { type: 'text', body }),
@@ -275,6 +282,8 @@ export const api = {
       throw new Error(msg);
     }
   },
+  /** Lead de formulário: a IA abre a conversa sem esperar mensagem. */
+  start: (id: string) => req<Session>(`/api/sessions/${id}/start`, {}),
   reset: (id: string, custom_fields: Record<string, unknown> = {}) =>
     req<Session>(`/api/sessions/${id}/reset`, { custom_fields }),
   /** Atualizações ao vivo da sessão (balões, "digitando…", estado). */

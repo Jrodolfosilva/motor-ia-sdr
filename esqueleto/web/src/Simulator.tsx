@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import CostPanel, { brl, usd } from './CostPanel';
 import { api, type PendingStatus, type RequiredDocument, type CrmConfig, type RequiredField, type Session, } from './api';
-import Phone from './Phone';
+import Phone, { COLD_LEAD_DRAFT } from './Phone';
 
 const STATUS_LABEL: Record<string, { text: string; tone: string }> = {
   active: { text: 'Em atendimento', tone: 'success' },
@@ -59,6 +59,8 @@ export default function Simulator() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const started = useRef(false);
+  const [kicking, setKicking] = useState(false);
+  useEffect(() => setKicking(false), [session?.id]);
 
   const customFields = (): Record<string, unknown> => {
     if (leadKind === 'frio') return {};
@@ -160,12 +162,23 @@ export default function Simulator() {
   const extra = Object.keys(cf).filter((k) => !known.has(k));
   const status = STATUS_LABEL[st?.status ?? ''] ?? { text: st?.status ?? '…', tone: 'neutral' };
   const isFormLead = formKeys.size > 0 || extra.length > 0;
+  // conversa ainda vazia: lead frio já vem com a 1ª mensagem escrita; lead de formulário tem "Iniciar"
+  const hasForm = Object.keys(cf).length > 0;
+  const untouched = !!session && (session.messages?.length ?? 0) === 0 && (st?.turnsCount ?? 0) === 0;
+  const kick = () => {
+    if (!session) return;
+    setKicking(true);
+    api.start(session.id).catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  };
   const pendingOf = (key: string) => (filled(cf[key]) ? null : st?.pending?.[key] ?? null);
 
   return (
     <div className="sim">
       <div className="card sim-stage">
         <Phone
+          key={session?.id}
+          draft={untouched && !hasForm ? COLD_LEAD_DRAFT : ''}
+          startButton={untouched && hasForm ? { label: kicking ? 'Iniciando…' : 'Iniciar', disabled: kicking, onClick: kick } : null}
           contactName={agentName}
           messages={session?.messages ?? []}
           typing={session?.typing || false}

@@ -51,6 +51,28 @@ describe('runTurn', () => {
     expect(texts(s)).toEqual(['Olá! Sou a Bella. Atendemos em todo o Brasil, com forte presença na Bahia.', 'Posso fazer umas perguntas?']);
   });
 
+  it('lead de formulário sem mensagem ("Iniciar"): IA abre a conversa', async () => {
+    const s = createSession('a', '5511999990000', { data_saida_ctps: '01/08/2026' });
+    let lastUser = '';
+    const llm = fakeLlm({ responder: 'Vi que você saiu em agosto, confere?' });
+    const spy: LlmProvider = {
+      async chat(args) {
+        const msgs = (args as any).messages ?? [];
+        lastUser = String([...msgs].reverse().find((m: any) => m.role === 'user')?.content ?? '');
+        return llm.chat(args);
+      },
+    };
+    await runTurn(buildSimulatorContext(s, agent(), spy, noVision));
+    expect(texts(s)).toContain('Vi que você saiu em agosto, confere?');
+    expect(lastUser).toContain('ainda não mandou mensagem');
+  });
+
+  it('lead frio sem mensagem: nada acontece', async () => {
+    const s = createSession('a');
+    await runTurn(buildSimulatorContext(s, agent({ greeting_example: undefined, consent_message: undefined }), fakeLlm({}), noVision));
+    expect(texts(s)).toEqual([]);
+  });
+
   it('extrai, classifica por regra e faz handoff', async () => {
     const s = createSession('a');
     const now = new Date(2026, 10, 2);
