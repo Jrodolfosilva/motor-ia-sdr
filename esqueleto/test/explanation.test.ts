@@ -78,6 +78,18 @@ describe('módulo de explicação', () => {
     expect(seen.system).toContain('já enviada antes');
   });
 
+  it('lead recusou/enrolou todas as perguntas-gatilho: sem explicação e sem "perguntas completas"', async () => {
+    const s = createSession('a', '5511999990000');
+    s.state.pending = {
+      situacao_trabalho: { status: 'recusou', count: 1 },
+      data_saida_ctps: { status: 'recusou', count: 1 },
+    };
+    appendUser(s, { type: 'text', body: 'bla bla bla' });
+    await runTurn(buildSimulatorContext(s, agent(explanation()), llm({}), noVision));
+    expect(s.state.explanationSent).toBeFalsy();
+    expect((s.state as any).crmFired ?? []).not.toContain('perguntas_completas');
+  });
+
   it('after = wait: envia e espera o lead (sem resposta da IA no mesmo turno)', async () => {
     const s = createSession('a', '5511999990000');
     appendUser(s, { type: 'text', body: 'desempregada, saí em 01/08/2026' });

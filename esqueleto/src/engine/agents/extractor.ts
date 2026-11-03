@@ -1,6 +1,6 @@
 import { modelFor, type Agent, type CallLog, type ChatMessage, type LlmProvider, type PendingStatus, type ToolDef } from '../types';
 import { PENDING_LABEL, RequiredFieldsStatus, type RoteiroProgress } from '../rules/requiredFields';
-import { timeContextLine } from '../rules/misc';
+import { isNoiseReply, timeContextLine } from '../rules/misc';
 import { elapsedNote } from '../rules/classificationRules';
 
 const TEMPERATURE = 0.1;
@@ -105,6 +105,7 @@ export function buildExtractorPrompt(status: RequiredFieldsStatus, now?: Date, l
       'PENDÊNCIAS: olhe SÓ as mensagens mais recentes do lead (depois da última fala da atendente):',
       latest.map((t) => `> ${t}`).join('\n'),
       'Se nelas o lead disse que não vai responder/enviar AGORA um item que a atendente pediu, chame marcar_pendencia com a key do item e a situação ("depois", "nao_tem" ou "recusou"). Só marque o que aparece nessas mensagens recentes; não remarque coisa antiga. Se o lead enviou ou respondeu o item, use salvar_dado_lead e não marque pendência.',
+      'NÃO é pendência (não chame nada): mensagem sem sentido ou letras aleatórias ("asdasd", "bla bla bla", "kkkk"), resposta fora do assunto, "não"/"sim" que responde a uma pergunta de sim/não da atendente (ex: "posso te fazer umas perguntas?", "tá bem?"), ou dúvida do lead. Pendência exige o lead dizer claramente, sobre AQUELE item, que vai depois, que não tem ou que não quer informar. Na dúvida, não marque.',
       pend.length ? `Pendências já registradas:\n${pend.join('\n')}` : '',
     ].filter(Boolean).join('\n'));
   }
@@ -172,5 +173,7 @@ export async function extract(
     }
   }
   for (const k of Object.keys(collected)) delete pending[k]; // enviou/respondeu → não é pendência
+  // "não" solto, "ok", "bla bla", "asdasd": não é adiamento/recusa de item nenhum (regra fixa, o modelo erra)
+  if (latest.length && latest.every(isNoiseReply)) for (const k of Object.keys(pending)) delete pending[k];
   return { collected, sources, confirmed, pending, log: { step: 'extractor', systemPrompt: system, model, raw: res.raw } };
 }

@@ -78,3 +78,34 @@ export function typingDelaySeconds(
   const cps = cfg.chars_per_second > 0 ? cfg.chars_per_second : DEFAULT_BUBBLE_DELAY.chars_per_second;
   return Math.min(cfg.max_seconds, Math.max(cfg.min_seconds, Math.ceil([...text].length / cps)));
 }
+
+// ---------------------------------------------------------------------------
+// Resposta sem conteúdo (não serve como pendência de item do roteiro)
+// ---------------------------------------------------------------------------
+
+const BARE_REPLIES = new Set([
+  'nao', 'n', 'nn', 'sim', 's', 'ss', 'ok', 'okay', 'blz', 'beleza', 'ta', 'hum', 'hm', 'hmm', 'ue', 'oi', 'ola',
+  'ah', 'aham', 'uhum', 'e', 'eh', 'oxe', 'q', 'que', 'oque', 'o que', '?',
+]);
+
+/** Pedaço de teclado: "asdasd", "dasdasda", "qwerty", "xzcv" (sem vogal ou com trecho repetido). */
+function isKeyboardMash(token: string): boolean {
+  if (token.length < 4) return false;
+  if (!/[aeiouy]/.test(token)) return true;
+  if (/(.{2,4})\1/.test(token) && !/^(ha|he|hi|rs|kk)+$/.test(token)) return true;
+  return /[bcdfghjklmnpqrstvwxz]{4,}/.test(token);
+}
+
+/**
+ * "não", "ok", "kkkk", "bla bla bla", "asdasdasd"… Sozinhas não dizem que o lead vai mandar depois,
+ * não tem ou recusou um item; o extrator às vezes marca pendência nelas e a pergunta some do roteiro.
+ */
+export function isNoiseReply(text: string): boolean {
+  const t = text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    .replace(/[^a-z0-9?\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!t || /^\?+$/.test(t)) return true;
+  if (BARE_REPLIES.has(t)) return true;
+  const tokens = t.split(' ');
+  if (tokens.every((w) => /^(k+|(ha)+h?|(he)+|(rs)+|bla|blah)$/.test(w))) return true;
+  return tokens.every((w) => isKeyboardMash(w));
+}

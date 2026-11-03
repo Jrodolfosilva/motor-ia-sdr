@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { normalizeDuration, toMonths } from '../src/engine/rules/duration';
 import { monthsSinceDate, parseDate, rulesMatch } from '../src/engine/rules/classificationRules';
 import { RequiredFieldsStatus } from '../src/engine/rules/requiredFields';
-import { inState, splitIntoBubbles, stateFor } from '../src/engine/rules/misc';
+import { inState, isNoiseReply, splitIntoBubbles, stateFor } from '../src/engine/rules/misc';
 import { buildHistory } from '../src/engine/runTurn';
 
 const today = new Date(2026, 10, 2); // 02/11/2026
@@ -74,5 +74,18 @@ describe('misc', () => {
       { role: 'user', content: '[Arquivo enviado pela lead que não deu para abrir/ler]' },
       { role: 'assistant', content: 'olá' },
     ]);
+  });
+});
+
+describe('isNoiseReply', () => {
+  it('resposta solta ou lixo de teclado', () => {
+    for (const t of ['nao', 'Não', 'não.', 'ok', 'kkkkk', 'bla bla bla', 'asdasdasdasdsa', 'dasdasd', 'xzcv', '???', '']) {
+      expect(isNoiseReply(t), t).toBe(true);
+    }
+  });
+  it('resposta com conteúdo', () => {
+    for (const t of ['depois', 'não tenho', 'mando à noite', 'prefiro não falar', 'saí em agosto', 'tô no trabalho', 'perdi a carteira']) {
+      expect(isNoiseReply(t), t).toBe(false);
+    }
   });
 });

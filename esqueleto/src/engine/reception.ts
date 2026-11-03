@@ -103,10 +103,15 @@ export function explanationTriggerKeys(agent: Agent): string[] {
   return keys.length ? keys : agent.required_fields.map((f) => f.key);
 }
 
-/** Pronto quando todas as perguntas-gatilho estão firmes (ou liberadas como pendência). */
+/**
+ * Pronto quando todas as perguntas-gatilho estão firmes (ou liberadas como pendência) E pelo menos
+ * uma tem resposta de verdade: só pendência (lead recusou/enrolou tudo) não explica nem qualifica.
+ */
 export function explanationReady(
   agent: Agent,
   status: { isSettled(k: string): boolean; isPendingResolved(k: string): boolean },
 ): boolean {
-  return explanationTriggerKeys(agent).every((k) => status.isSettled(k) || status.isPendingResolved(k));
+  const keys = explanationTriggerKeys(agent);
+  if (!keys.length) return true;
+  return keys.every((k) => status.isSettled(k) || status.isPendingResolved(k)) && keys.some((k) => status.isSettled(k));
 }
