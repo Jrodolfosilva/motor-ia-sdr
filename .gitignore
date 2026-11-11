@@ -7,3 +7,4 @@ dist-embed
 *.log
 .DS_Store
 *.tar
+.env.*
