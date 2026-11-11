@@ -1,5 +1,6 @@
 {
   "key": "salario_maternidade",
+  "template": true,
   "engine_version": "v2",
   "kit": {
     "name": "Hub Salário-Maternidade",
@@ -515,6 +516,12 @@
       "extractor": "deepseek-ai/DeepSeek-V4.1-Flash",
       "qualifier": "deepseek-ai/DeepSeek-V4.1-Flash",
       "vision": "nvidia/NVIDIA-Nemotron-3.5-Super-VL"
+    },
+    "test_lead": {
+      "cold_message": "Olá, gostaria de mais informações sobre salário-maternidade",
+      "form_answers": {
+        "Você está grávida atualmente?": "Sim"
+      }
     }
   }
 }

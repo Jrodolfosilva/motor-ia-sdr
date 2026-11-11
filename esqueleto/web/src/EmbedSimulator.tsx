@@ -2,12 +2,14 @@
 // lead e "Recomeçar". Sem painéis internos (estado, prompts, custos) - é a visão do cliente.
 import { useEffect, useRef, useState } from 'react';
 import { RotateCcw, Users, Zap } from 'lucide-react';
-import { api, type RequiredDocument, type Session } from './api';
+import { api, setKitKey, type RequiredDocument, type Session, type TestLead } from './api';
 import Phone, { COLD_LEAD_DRAFT } from './Phone';
 
 type LeadKind = 'form' | 'frio';
 
 export interface EmbedOptions {
+  /** Token do link público do agente. */
+  token: string;
   /** Tipo de lead inicial. */
   lead?: LeadKind;
   /** Mostrar a escolha formulário/frio. */
@@ -26,6 +28,8 @@ export default function EmbedSimulator({ options }: { options: EmbedOptions }) {
   const [session, setSession] = useState<Session | null>(null);
   const [agentName, setAgentName] = useState('Atendimento');
   const [docs, setDocs] = useState<RequiredDocument[]>([]);
+  const [testLead, setTestLead] = useState<TestLead | null>(null);
+  const [off, setOff] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const started = useRef(false);
@@ -34,17 +38,20 @@ export default function EmbedSimulator({ options }: { options: EmbedOptions }) {
 
   const fail = (e: unknown) => {
     const msg = e instanceof Error ? e.message : String(e);
+    if (/desativado/i.test(msg)) setOff(true);
     setError(msg.startsWith('404') ? 'Esta conversa expirou. Clique em "Recomeçar".' : msg);
   };
 
-  const start = async (kind: LeadKind = lead) => {
+  const start = async (kind: LeadKind = lead, tl: TestLead | null = testLead) => {
     setStarting(true);
     setError(null);
     try {
-      const custom: Record<string, string> = kind === 'form' ? { ...(options.form ?? {}), ...(name.trim() ? { nome: name.trim() } : {}) } : {};
+      const custom: Record<string, string> = kind === 'form'
+        ? { ...(tl?.form_answers ?? {}), ...(options.form ?? {}), ...(name.trim() ? { nome: name.trim() } : {}) }
+        : {};
       // lead de formulário sem nenhum dado vira lead frio: garante ao menos um campo
-      if (kind === 'form' && !Object.keys(custom).length) custom['Você está grávida atualmente?'] = 'Sim';
-      setSession(await api.create(options.phone ?? '5511999999999', custom));
+      if (kind === 'form' && !Object.keys(custom).length) custom.nome = 'Cliente';
+      setSession(await api.create({ token: options.token }, options.phone ?? '5511999999999', custom));
     } catch (e) {
       fail(e);
     } finally {
@@ -55,8 +62,20 @@ export default function EmbedSimulator({ options }: { options: EmbedOptions }) {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    api.getPublicAgent().then((a) => { setAgentName(a.name); setDocs(a.documents); }).catch(() => {});
-    start();
+    if (!options.token) {
+      setOff(true);
+      setError('Link de teste inválido (faltou o token).');
+      return;
+    }
+    api.getPublicAgent(options.token)
+      .then((a) => {
+        setKitKey(a.key);
+        setAgentName(a.name);
+        setDocs(a.documents);
+        setTestLead(a.test_lead);
+        start(lead, a.test_lead);
+      })
+      .catch(fail);
   }, []);
 
   useEffect(() => {
@@ -75,6 +94,14 @@ export default function EmbedSimulator({ options }: { options: EmbedOptions }) {
     api.start(session.id).catch(fail);
   };
   const tmp = () => ({ id: `tmp-${Date.now()}`, role: 'user' as const, createdAt: new Date().toISOString() });
+
+  if (off) {
+    return (
+      <div className="hub-embed">
+        <div className="alert danger embed-error">{error ?? 'Este link de teste foi desativado.'}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="hub-embed">
@@ -98,7 +125,7 @@ export default function EmbedSimulator({ options }: { options: EmbedOptions }) {
 
       <Phone
         key={session?.id}
-        draft={untouched && !hasForm ? COLD_LEAD_DRAFT : ''}
+        draft={untouched && !hasForm ? testLead?.cold_message || COLD_LEAD_DRAFT : ''}
         startButton={untouched && hasForm ? { label: kicking ? 'Iniciando…' : 'Iniciar', disabled: kicking, onClick: kick } : null}
         contactName={agentName}
         messages={session?.messages ?? []}

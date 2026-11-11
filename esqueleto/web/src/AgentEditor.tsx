@@ -3,11 +3,12 @@ import ReceptionEditor, { emptyReception } from './ReceptionEditor';
 import ExplanationEditor, { emptyExplanation } from './ExplanationEditor';
 import GuardrailsEditor, { emptyGuardrails } from './GuardrailsEditor';
 import CrmEditor, { emptyCrm } from './CrmEditor';
+import PublicLinkCard from './PublicLinkCard';
 import {
-  api, type AgentConfig, type Reception, type ReceptionMessage, type ClassificationLabel, type DocumentFileType, type KitFile, type RequiredDocument, type Rule, type RuleOperator,
+  api, type AgentConfig, type PublicLink, type Reception, type ReceptionMessage, type ClassificationLabel, type DocumentFileType, type KitFile, type RequiredDocument, type Rule, type RuleOperator,
 } from './api';
 
-type Section = 'geral' | 'conduta' | 'crm' | 'recepcao' | 'explicacao' | 'prompt' | 'mensagens' | 'perguntas' | 'documentos' | 'classificacao' | 'faq' | 'followup' | 'json';
+type Section = 'geral' | 'conduta' | 'crm' | 'recepcao' | 'explicacao' | 'prompt' | 'mensagens' | 'perguntas' | 'documentos' | 'classificacao' | 'faq' | 'followup' | 'publico' | 'json';
 
 /** Seções na ordem das etapas da conversa; `group` vira um subtítulo no menu. */
 const SECTIONS: { id: Section; label: string; group?: string }[] = [
@@ -23,6 +24,7 @@ const SECTIONS: { id: Section; label: string; group?: string }[] = [
   { id: 'mensagens', label: '6. Encerramento' },
   { id: 'followup', label: 'Follow-up (inatividade)' },
   { id: 'crm', label: 'CRM / Kanban', group: 'Integração' },
+  { id: 'publico', label: 'Link público e teste', group: 'Teste' },
   { id: 'json', label: 'JSON bruto', group: 'Avançado' },
 ];
 
@@ -69,6 +71,28 @@ function Area({ label, value, onChange, rows = 3, hint, mono }: {
       <span>{label}</span>
       <textarea className={mono ? 'mono' : ''} rows={rows} value={value ?? ''} onChange={(e) => onChange(e.target.value)} />
       {hint && <small>{hint}</small>}
+    </label>
+  );
+}
+
+/** "Pergunta: resposta" por linha. Rascunho local; só converte ao sair do campo (não come linha incompleta). */
+function FormAnswers({ value, onChange }: { value: Record<string, string>; onChange: (v: Record<string, string>) => void }) {
+  const toText = (v: Record<string, string>) => Object.entries(v).map(([q, r]) => `${q}: ${r}`).join('\n');
+  const [draft, setDraft] = useState(() => toText(value));
+  const commit = () => {
+    const out: Record<string, string> = {};
+    for (const line of draft.split('\n')) {
+      const i = line.indexOf(':');
+      if (i > 0 && line.slice(0, i).trim()) out[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+    }
+    onChange(out);
+    setDraft(toText(out));
+  };
+  return (
+    <label className="f">
+      <span>Respostas do formulário de exemplo (pergunta: resposta, uma por linha)</span>
+      <textarea rows={4} value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} placeholder="Qual o seu interesse?: Quero um orçamento" />
+      <small>No link público, o lead "Veio do formulário" chega com estas respostas (mais o nome digitado).</small>
     </label>
   );
 }
@@ -152,8 +176,9 @@ function RuleRow({ rule, fields, onChange, onRemove }: {
 
 // ---------- tela ----------
 
-export default function AgentEditor() {
+export default function AgentEditor({ agentKey, onSaved }: { agentKey: string; onSaved?: () => void }) {
   const [loaded, setLoaded] = useState<AgentConfig | null>(null);
+  const [link, setLink] = useState<PublicLink>({ enabled: false, token: null });
   const [kit, setKit] = useState<KitFile | null>(null);
   const [prompt, setPrompt] = useState('');
   const [section, setSection] = useState<Section>('geral');
@@ -164,13 +189,14 @@ export default function AgentEditor() {
 
   const load = (cfg: AgentConfig) => {
     setLoaded(cfg);
+    setLink(cfg.publicLink);
     setKit(clone(cfg.kit));
     setPrompt(cfg.system_prompt);
   };
 
   useEffect(() => {
-    api.getAgent().then(load).catch((e) => setMsg({ ok: false, text: String(e.message ?? e) }));
-  }, []);
+    api.getAgent(agentKey).then(load).catch((e) => setMsg({ ok: false, text: String(e.message ?? e) }));
+  }, [agentKey]);
 
   useEffect(() => {
     if (section === 'json' && kit) {
@@ -214,10 +240,11 @@ export default function AgentEditor() {
     setSaving(true);
     setMsg(null);
     try {
-      const cfg = await api.saveAgent(toSave, prompt);
+      const cfg = await api.saveAgent(agentKey, toSave, prompt);
       load(cfg);
+      onSaved?.();
       if (section === 'json') setJsonDraft(JSON.stringify(cfg.kit, null, 2));
-      setMsg({ ok: true, text: 'Salvo. Vale para as próximas mensagens do simulador.' });
+      setMsg({ ok: true, text: 'Salvo. Vale para as próximas mensagens do simulador e do link público.' });
     } catch (e) {
       setMsg({ ok: false, text: (e as Error).message });
     } finally {
@@ -269,7 +296,12 @@ export default function AgentEditor() {
               <div className="grid2">
                 <Text label="Nome do agente" value={a.name} onChange={(v) => setAgent({ name: v })} />
                 <Text label="Nome do kit" value={k.name} onChange={(v) => setKitInfo({ name: v })} />
+                <Text label="Segmento" value={k.category} placeholder="Ex: previdenciário, odontologia, imobiliária" onChange={(v) => setKitInfo({ category: v || undefined })} />
               </div>
+              <label className="f-check">
+                <input type="checkbox" checked={!!kit.template} onChange={(e) => setKit({ ...kit, template: e.target.checked })} />
+                Template: aparece primeiro como base ao criar agentes novos (dá para copiar só algumas partes do fluxo)
+              </label>
               <Area label="Informações da empresa (company_info)" rows={10} value={k.company_info} onChange={(v) => setKitInfo({ company_info: v })} hint="Vai no prompt do responder. Honorários, prazos, prova social etc." />
               <h2>Modelos</h2>
               <div className="grid2">
@@ -309,6 +341,26 @@ export default function AgentEditor() {
                 value={a.handoff_keywords.join('\n')}
                 onChange={(v) => setAgent({ handoff_keywords: v.split('\n').map((s) => s.trim()).filter(Boolean) })}
                 hint="Se o lead escrever qualquer uma, passa direto para humano."
+              />
+            </>
+          )}
+
+          {section === 'publico' && (
+            <>
+              <h2>Link público</h2>
+              <PublicLinkCard agentKey={agentKey} link={link} onChange={setLink} />
+              <h2>Lead de teste</h2>
+              <p className="muted">O que o simulador e a página do link público usam para começar uma conversa de teste.</p>
+              <Text
+                label="Primeira mensagem do lead frio"
+                value={a.test_lead?.cold_message}
+                placeholder="Olá, gostaria de mais informações"
+                onChange={(v) => setAgent({ test_lead: { ...a.test_lead, cold_message: v } })}
+                hint="Já vem escrita no celular quando o lead chega sem dados."
+              />
+              <FormAnswers
+                value={a.test_lead?.form_answers ?? {}}
+                onChange={(form_answers) => setAgent({ test_lead: { ...a.test_lead, form_answers } })}
               />
             </>
           )}

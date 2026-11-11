@@ -129,7 +129,13 @@ let API_BASE = '';
 export const setApiBase = (base: string) => { API_BASE = base.replace(/\/+$/, ''); };
 export const apiUrl = (path: string) => `${API_BASE}${path}`;
 
-export const kitFileUrl = (path: string) => apiUrl(`/api/kit-file?path=${encodeURIComponent(path)}`);
+/** Agente aberto no painel (ou o do link público): mídia "media/..." e uploads são dele. */
+let KIT_KEY = '';
+export const setKitKey = (key: string) => { KIT_KEY = key; };
+export const getKitKey = () => KIT_KEY;
+
+export const kitFileUrl = (path: string) =>
+  apiUrl(`/api/kit-file?kit=${encodeURIComponent(KIT_KEY)}&path=${encodeURIComponent(path)}`);
 
 /** URL de qualquer mídia de mensagem: gravações do simulador ("sim/...") ou arquivos do kit ("media/..."). */
 export const mediaUrl = (path: string) =>
@@ -175,9 +181,14 @@ export interface RequiredDocument {
 export interface FollowUpStep { step: number; delay_minutes: number; message: string; is_active: boolean }
 export interface Faq { question: string; answer: string }
 
+/** Lead de teste do simulador/link público. */
+export interface TestLead { cold_message?: string | null; form_answers?: Record<string, string> }
+
 export interface KitFile {
   key: string;
   engine_version?: string;
+  /** Agente-modelo: aparece como base sugerida ao criar agentes novos. */
+  template?: boolean;
   kit: {
     name: string;
     category?: string;
@@ -210,18 +221,36 @@ export interface KitFile {
     explanation?: ExplanationModule | null;
     guardrails?: Guardrails | null;
     crm?: CrmConfig | null;
+    test_lead?: TestLead | null;
     [k: string]: unknown;
   };
   [k: string]: unknown;
 }
 
 export interface PublicAgent {
+  key: string;
   name: string;
   documents: RequiredDocument[];
-  publicMode: boolean;
+  test_lead: TestLead | null;
 }
 
+export interface PublicLink { enabled: boolean; token: string | null }
+export const publicLinkUrl = (token: string) => `${location.origin}/t/${token}`;
+
+export interface AgentSummary {
+  key: string;
+  name: string;
+  kitName: string;
+  category: string | null;
+  template: boolean;
+  publicLink: PublicLink;
+  updatedAt: string;
+}
+export interface KitSection { id: string; label: string }
+
 export interface AgentConfig {
+  key: string;
+  publicLink: PublicLink;
   kitPath: string;
   hasApiKey: boolean;
   kit: KitFile;
@@ -252,8 +281,9 @@ export const api = {
   me: () => req<{ user: AuthUser }>('/api/auth/me').then((r) => r.user),
   login: (email: string, code: string) => req<{ user: AuthUser }>('/api/auth/login', { email, code }).then((r) => r.user),
   logout: () => req<{ ok: true }>('/api/auth/logout', {}),
-  create: (phone: string, custom_fields: Record<string, unknown> = {}) =>
-    req<Session>('/api/sessions', { phone, custom_fields }),
+  /** Nova conversa: `agent` no painel (admin) ou `token` do link público. */
+  create: (target: { agent: string } | { token: string }, phone: string, custom_fields: Record<string, unknown> = {}) =>
+    req<Session>('/api/sessions', { ...target, phone, custom_fields }),
   send: (id: string, body: string) => req<Session>(`/api/sessions/${id}/messages`, { type: 'text', body }),
   /** Foto ou PDF de verdade: o servidor guarda e a IA lê no turno (visão / texto do PDF). */
   sendFile: async (id: string, file: File, caption: string): Promise<void> => {
@@ -293,7 +323,7 @@ export const api = {
     return () => es.close();
   },
   uploadMedia: async (file: File): Promise<{ path: string; mime: string; file_name: string; size: number }> => {
-    const r = await fetch(apiUrl(`/api/agent/media?name=${encodeURIComponent(file.name)}`), {
+    const r = await fetch(apiUrl(`/api/agents/${encodeURIComponent(KIT_KEY)}/media?name=${encodeURIComponent(file.name)}`), {
       method: 'POST',
       headers: { 'Content-Type': file.type || 'application/octet-stream' },
       body: file,
@@ -305,8 +335,16 @@ export const api = {
     }
     return r.json();
   },
-  getAgent: () => req<AgentConfig>('/api/agent'),
-  /** Versão pública (modo demo): só nome do agente e documentos, sem prompt/config. */
-  getPublicAgent: () => req<PublicAgent>('/api/public/agent'),
-  saveAgent: (kit: KitFile, system_prompt: string) => req<AgentConfig>('/api/agent', { kit, system_prompt }, 'PUT'),
+  listAgents: () => req<{ agents: AgentSummary[]; sections: KitSection[] }>('/api/agents'),
+  /** Em branco, ou a partir de `from` copiando só as `sections` escolhidas. */
+  createAgent: (body: { name: string; from?: string | null; sections?: string[]; template?: boolean }) =>
+    req<AgentConfig>('/api/agents', body),
+  deleteAgent: (key: string) => req<{ ok: true }>(`/api/agents/${encodeURIComponent(key)}`, undefined, 'DELETE'),
+  getAgent: (key: string) => req<AgentConfig>(`/api/agents/${encodeURIComponent(key)}`),
+  saveAgent: (key: string, kit: KitFile, system_prompt: string) =>
+    req<AgentConfig>(`/api/agents/${encodeURIComponent(key)}`, { kit, system_prompt }, 'PUT'),
+  setPublicLink: (key: string, body: { enabled?: boolean; regenerate?: boolean }) =>
+    req<PublicLink>(`/api/agents/${encodeURIComponent(key)}/public-link`, body, 'PUT'),
+  /** Página do link público: só nome, documentos e lead de teste, sem prompt/config. */
+  getPublicAgent: (token: string) => req<PublicAgent>(`/api/public/agent?t=${encodeURIComponent(token)}`),
 };

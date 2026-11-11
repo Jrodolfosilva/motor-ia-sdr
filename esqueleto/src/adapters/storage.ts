@@ -57,6 +57,23 @@ export async function sendObject(key: string, req: Request, res: Response): Prom
   (await minio.getObject(MINIO_BUCKET, key)).pipe(res);
 }
 
+/** Copia todos os objetos de um prefixo para outro (ex: mídia de um kit para o kit duplicado). */
+export async function copyPrefix(from: string, to: string): Promise<number> {
+  const keys: string[] = [];
+  for await (const o of minio.listObjectsV2(MINIO_BUCKET, from, true)) if (o.name) keys.push(o.name);
+  for (const k of keys) {
+    await minio.copyObject(MINIO_BUCKET, to + k.slice(from.length), `/${MINIO_BUCKET}/${k}`);
+  }
+  return keys.length;
+}
+
+/** Remove todos os objetos de um prefixo. */
+export async function removePrefix(prefix: string): Promise<void> {
+  const keys: string[] = [];
+  for await (const o of minio.listObjectsV2(MINIO_BUCKET, prefix, true)) if (o.name) keys.push(o.name);
+  if (keys.length) await minio.removeObjects(MINIO_BUCKET, keys);
+}
+
 /** Caminho lógico usado no motor ("media/x", "sim/x") → chave no bucket. null = caminho inválido. */
 export function objectKeyFor(path: string, kitKey: string): string | null {
   if (!path || path.includes('..') || path.includes('\\')) return null;

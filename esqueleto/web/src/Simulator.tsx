@@ -5,6 +5,7 @@ import {
 import CostPanel, { brl, usd } from './CostPanel';
 import { api, type PendingStatus, type RequiredDocument, type CrmConfig, type RequiredField, type Session, } from './api';
 import Phone, { COLD_LEAD_DRAFT } from './Phone';
+import type { TestLead } from './api';
 
 const STATUS_LABEL: Record<string, { text: string; tone: string }> = {
   active: { text: 'Em atendimento', tone: 'success' },
@@ -45,12 +46,13 @@ function parseExtras(text: string): Record<string, string> {
   return out;
 }
 
-export default function Simulator() {
+export default function Simulator({ agentKey }: { agentKey: string }) {
   const [session, setSession] = useState<Session | null>(null);
   const [agentName, setAgentName] = useState('Atendimento');
   const [fields, setFields] = useState<RequiredField[]>([]);
   const [docs, setDocs] = useState<RequiredDocument[]>([]);
   const [crmCfg, setCrmCfg] = useState<CrmConfig | null>(null);
+  const [testLead, setTestLead] = useState<TestLead | null>(null);
   const [phone, setPhone] = useState('5511999999999');
   const [leadKind, setLeadKind] = useState<LeadKind>('formulario');
   const [nome, setNome] = useState('Maria');
@@ -83,8 +85,9 @@ export default function Simulator() {
   };
 
   const loadAgent = () =>
-    api.getAgent().then((a) => {
+    api.getAgent(agentKey).then((a) => {
       setAgentName(a.kit.agent.name ?? a.kit.kit.name);
+      setTestLead(a.kit.agent.test_lead ?? null);
       setFields(a.kit.agent.required_fields);
       setDocs(a.kit.agent.required_documents ?? []);
       setCrmCfg(a.kit.agent.crm ?? null);
@@ -99,10 +102,11 @@ export default function Simulator() {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    run(() => api.create(phone, {}));
+    run(() => api.create({ agent: agentKey }, phone, {}));
     loadAgent();
     // recarrega nome/roteiro quando o agente for salvo na outra aba
     const onHash = () => { if (location.hash !== '#agente') loadAgent(); };
+    // (o simulador é recriado quando o agente aberto muda: key={agentKey} no App)
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
@@ -177,7 +181,7 @@ export default function Simulator() {
       <div className="card sim-stage">
         <Phone
           key={session?.id}
-          draft={untouched && !hasForm ? COLD_LEAD_DRAFT : ''}
+          draft={untouched && !hasForm ? testLead?.cold_message || COLD_LEAD_DRAFT : ''}
           startButton={untouched && hasForm ? { label: kicking ? 'Iniciando…' : 'Iniciar', disabled: kicking, onClick: kick } : null}
           contactName={agentName}
           messages={session?.messages ?? []}
@@ -268,13 +272,13 @@ export default function Simulator() {
               </div>
               <label className="f">
                 <span>Outros campos do form (chave: valor, um por linha)</span>
-                <textarea rows={2} value={extras} onChange={(e) => setExtras(e.target.value)} placeholder="Você está grávida atualmente: sim" />
+                <textarea rows={2} value={extras} onChange={(e) => setExtras(e.target.value)} placeholder={Object.entries(testLead?.form_answers ?? {}).map(([k, v]) => `${k}: ${v}`).join('\n') || 'Pergunta do formulário: resposta'} />
               </label>
             </>
           )}
 
           <div className="row">
-            <button className="btn primary" disabled={busy} onClick={() => run(() => api.create(phone, customFields()))}><Plus size={16} /> Nova conversa</button>
+            <button className="btn primary" disabled={busy} onClick={() => run(() => api.create({ agent: agentKey }, phone, customFields()))}><Plus size={16} /> Nova conversa</button>
             <button className="btn" disabled={busy || !session} onClick={() => session && run(() => api.reset(session.id, customFields()))}><RotateCcw size={16} /> Reiniciar</button>
           </div>
         </section>

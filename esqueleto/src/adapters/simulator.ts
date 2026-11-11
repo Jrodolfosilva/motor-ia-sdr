@@ -16,6 +16,8 @@ export interface SimMessage extends StoredMessage {
 export interface Session {
   id: string;
   agentId: string;
+  /** Conversa aberta pelo link público (/t/<token>). Desligar o link encerra o acesso a ela. */
+  publicToken?: string | null;
   phone: string;
   customFields: Record<string, unknown>;
   state: ConversationState;

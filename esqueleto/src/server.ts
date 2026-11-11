@@ -1,4 +1,4 @@
-// Servidor do simulador. Persistência: MongoDB (kit + sessões), MinIO (arquivos), Redis (limites).
+// Servidor do simulador. Persistência: MongoDB (agentes + sessões), MinIO (arquivos), Redis (limites).
 //   docker compose up   →  http://localhost:3000
 import express from 'express';
 import { existsSync } from 'node:fs';
@@ -17,7 +17,9 @@ import { createMediaAnalyzer } from './engine/agents/mediaAnalyzer';
 import { CRM_EVENTS } from './engine/crm';
 import { createMediaFiles } from './adapters/mediaFiles';
 import { connectAll, disconnectAll } from './db/connection';
-import { ensureKit, getKit, saveKit } from './adapters/kitRepo';
+import {
+  createKit, deleteKit, getKit, getPublicLink, KIT_SECTIONS, kitKeyByToken, listKits, NotFound, saveKit, seedKitIfEmpty, setPublicLink,
+} from './adapters/kitRepo';
 import { sessionRepo } from './adapters/sessionRepo';
 import { getObject, objectKeyFor, putObject, sendObject } from './adapters/storage';
 import { allowHit } from './adapters/rateLimit';
@@ -46,32 +48,42 @@ function kitToAgent(raw: Record<string, any>, apiKey: string): Agent {
   };
 }
 
-// Kit inicial: importado do arquivo para o MongoDB na 1ª subida; depois o banco é a fonte da verdade.
+// Agentes: vários no MongoDB (coleção kits), cada conversa usa o agente em que foi criada.
+// Banco vazio → importa este kit.json como agente inicial.
 const KIT_SEED = process.env.KIT_PATH ?? join(__dirname, '../../kits/salario-maternidade/kit.json');
 const API_KEY = process.env.TOGETHER_API_KEY ?? '';
-let KIT_KEY = process.env.KIT_KEY ?? '';
-let kitRaw: Record<string, any> = {};
-let agent: Agent;
 const llm = openAiCompatible('together');
 
-async function reloadAgent() {
-  kitRaw = await getKit(KIT_KEY);
-  agent = kitToAgent(kitRaw, API_KEY);
-}
+interface LoadedAgent { raw: Record<string, any>; agent: Agent; vision: MediaAnalyzerPort }
+const loaded = new Map<string, Promise<LoadedAgent>>();
 
-// Leitor de foto/PDF (docs/03 §4): visão do kit (models.vision) + texto/render de PDF. Arquivos no MinIO.
-const vision: MediaAnalyzerPort = createMediaAnalyzer(llm, createMediaFiles(async (path) => {
-  const key = objectKeyFor(path, KIT_KEY);
-  return key ? getObject(key) : null;
-}));
+/** Agente pronto para o motor (cache; `forget` ao salvar/excluir). */
+function agentFor(key: string): Promise<LoadedAgent> {
+  let p = loaded.get(key);
+  if (!p) {
+    p = getKit(key).then((raw) => ({
+      raw,
+      agent: kitToAgent(raw, API_KEY),
+      // Leitor de foto/PDF (docs/03 §4): visão do kit (models.vision) + texto/render de PDF. Arquivos no MinIO.
+      vision: createMediaAnalyzer(llm, createMediaFiles(async (path) => {
+        const k = objectKeyFor(path, key);
+        return k ? getObject(k) : null;
+      })),
+    }));
+    p.catch(() => loaded.delete(key));
+    loaded.set(key, p);
+  }
+  return p;
+}
+const forget = (key: string) => loaded.delete(key);
 
 const app = express();
 app.set('trust proxy', true); // IP real atrás de proxy (Render/Railway/Nginx) para os limites
 app.use(express.json());
 app.use('/api/auth', authRouter);
-// painel: configuração do agente e custos só com login (admin)
-app.use(['/api/agent', '/api/cost'], requireAdmin);
-// conversas são públicas (embed), mas prompts/logs só aparecem para quem está logado
+// painel: configuração dos agentes e custos só com login (admin)
+app.use(['/api/agents', '/api/cost'], requireAdmin);
+// conversas: admin (painel) ou visitante do link público; prompts/logs só para quem está logado
 app.use('/api/sessions', async (req, _res, next) => { try { await currentUser(req); next(); } catch (e) { next(e); } });
 const isAdmin = (req: express.Request) => !!(req as any)._authUser;
 // App React compilado (web/dist) quando existe (Docker); senão o chat simples de public/.
@@ -79,11 +91,11 @@ const WEB_DIST = join(__dirname, '../web/dist');
 if (existsSync(WEB_DIST)) app.use(express.static(WEB_DIST));
 app.use(express.static(join(__dirname, '../public')));
 
-// ---------- Modo público: simulador embutido na página do cliente ----------
-// PUBLIC_DEMO=1 → bloqueia edição do agente/custos, esconde prompts e limita uso por IP/conversa.
-// CORS_ORIGINS=https://site-do-cliente.com,https://outro.com  (padrão: * = qualquer site)
+// ---------- Link público por agente ----------
+// Cada agente tem um link /t/<token> que pode ser ligado/desligado no editor. Visitantes do link (sem
+// login) só conversam com aquele agente, não veem prompts/logs e têm limite de uso por IP/conversa.
+// CORS_ORIGINS=https://site-do-cliente.com,https://outro.com  (padrão: * = qualquer site, para o embed)
 
-const PUBLIC_DEMO = process.env.PUBLIC_DEMO === '1';
 const CORS_ORIGINS = (process.env.CORS_ORIGINS ?? '*').split(',').map((o) => o.trim()).filter(Boolean);
 const DEMO_MAX_SESSIONS = Number(process.env.DEMO_MAX_SESSIONS_PER_HOUR ?? 20);
 const DEMO_MAX_MESSAGES = Number(process.env.DEMO_MAX_MESSAGES ?? 60);
@@ -100,54 +112,98 @@ app.use((req, res, next) => {
   next();
 });
 
-const ADMIN_ROUTES = [/^\/api\/agent(\/|$)/, /^\/api\/cost\//];
-app.use((req, res, next) => {
-  if (PUBLIC_DEMO && ADMIN_ROUTES.some((r) => r.test(req.path))) return res.status(403).json({ error: 'Indisponível no modo público.' });
-  next();
-});
+const wrap = (fn: (req: express.Request, res: express.Response) => Promise<unknown>) =>
+  (req: express.Request, res: express.Response, next: express.NextFunction) =>
+    fn(req, res).catch((e) => (e instanceof NotFound ? res.status(404).json({ error: e.message }) : next(e)));
 
-// script de embed + página de demonstração
+// script de embed + página pública do agente
 app.use('/embed', express.static(join(__dirname, '../web/dist-embed'), { maxAge: '5m' }));
-app.get('/demo', (_req, res) => {
-  res.type('html').send(`<!doctype html>
+
+const esc = (v: string) => v.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const publicPage = (title: string, body: string) => `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Teste o atendimento com IA</title>
+<meta name="robots" content="noindex"><title>${esc(title)}</title>
 <style>body{margin:0;font-family:system-ui,sans-serif;background:#efefed;color:#18181b}main{max-width:900px;margin:0 auto;padding:24px 16px}
 h1{font-size:22px;text-align:center;margin:8px 0 4px}p{text-align:center;color:#71717a;margin:0 0 16px}</style></head>
-<body><main><h1>Teste o atendimento com IA</h1><p>Converse como se fosse a cliente: texto, áudio, foto ou PDF.</p>
-<div id="hub-ia-simulador"></div></main>
-<script src="/embed/hub-ia-simulador.js"></script></body></html>`);
-});
+<body><main>${body}</main></body></html>`;
 
-// limites do modo público (Redis: janela de 1h por IP)
-async function allowNewSession(ip: string): Promise<boolean> {
-  if (!PUBLIC_DEMO) return true;
-  return allowHit(`sessions:${ip}`, DEMO_MAX_SESSIONS, 60 * 60);
+app.get('/t/:token', wrap(async (req, res) => {
+  const token = String(req.params.token);
+  const key = await kitKeyByToken(token);
+  if (!key) {
+    return res.status(404).type('html').send(publicPage('Link indisponível',
+      '<h1>Link indisponível</h1><p>Este link de teste foi desativado ou não existe. Peça um link novo a quem te enviou.</p>'));
+  }
+  const { raw } = await agentFor(key);
+  const name = String(raw.agent?.name || raw.kit?.name || 'Atendimento');
+  res.type('html').send(publicPage(`Teste: ${name}`,
+    `<h1>Teste o atendimento com IA</h1><p>Converse como se fosse o cliente: texto, áudio, foto ou PDF.</p>
+<div id="hub-ia-simulador"></div>
+<script src="/embed/hub-ia-simulador.js" data-token="${esc(token)}"></script>`));
+}));
+
+/** Visitante (sem login) só usa conversas abertas por um link público que continua ligado. */
+async function canUse(req: express.Request, s: Session): Promise<boolean> {
+  if (isAdmin(req)) return true;
+  return !!s.publicToken && (await kitKeyByToken(s.publicToken)) === s.agentId;
 }
-const tooManyMessages = (s: Session) =>
-  PUBLIC_DEMO && s.messages.filter((m) => m.role === 'user').length >= DEMO_MAX_MESSAGES;
+const LINK_OFF = 'Este link de teste foi desativado.';
+
+// limites para visitantes (Redis: janela de 1h por IP); admin não tem limite
+async function allowNewSession(req: express.Request): Promise<boolean> {
+  if (isAdmin(req)) return true;
+  return allowHit(`sessions:${req.ip ?? '?'}`, DEMO_MAX_SESSIONS, 60 * 60);
+}
+const tooManyMessages = (req: express.Request, s: Session) =>
+  !isAdmin(req) && s.messages.filter((m) => m.role === 'user').length >= DEMO_MAX_MESSAGES;
 const LIMIT_MSG = 'Limite de mensagens desta conversa de teste atingido. Clique em "Recomeçar".';
 
-app.get('/api/public/agent', (_req, res) => {
+/** O que a página pública precisa: nome, documentos e o lead de teste. Sem prompt/config. */
+app.get('/api/public/agent', wrap(async (req, res) => {
+  const key = await kitKeyByToken(String(req.query.t ?? ''));
+  if (!key) return res.status(404).json({ error: LINK_OFF });
+  const { raw, agent } = await agentFor(key);
   res.json({
-    name: kitRaw.agent?.name ?? agent.kit.name,
+    key,
+    name: raw.agent?.name ?? agent.kit.name,
     documents: agent.required_documents.map((d) => ({ key: d.key, label: d.label, file_types: d.file_types, accepted: d.accepted, request_message: '' })),
-    publicMode: PUBLIC_DEMO,
+    test_lead: raw.agent?.test_lead ?? null,
   });
-});
+}));
 
-// ---------- Config do agente (MongoDB, coleção kits; recarrega sem reiniciar) ----------
+// ---------- Agentes (MongoDB, coleção kits; salvar recarrega sem reiniciar) ----------
 
-function agentPayload() {
-  const { system_prompt: systemPrompt = '', ...agentRest } = kitRaw.agent ?? {};
-  return { kitPath: `mongodb/kits/${KIT_KEY}`, hasApiKey: API_KEY !== '', kit: { ...kitRaw, agent: agentRest }, system_prompt: systemPrompt, crmEvents: CRM_EVENTS };
+async function agentPayload(key: string) {
+  const { raw } = await agentFor(key);
+  const { system_prompt: systemPrompt = '', ...agentRest } = raw.agent ?? {};
+  return {
+    key, kitPath: `mongodb/kits/${key}`, hasApiKey: API_KEY !== '',
+    kit: { ...raw, agent: agentRest }, system_prompt: systemPrompt, crmEvents: CRM_EVENTS,
+    publicLink: await getPublicLink(key),
+  };
 }
 
-app.get('/api/agent', (_req, res) => {
-  res.json(agentPayload());
-});
+app.get('/api/agents', wrap(async (_req, res) => {
+  res.json({ agents: await listKits(), sections: KIT_SECTIONS.map(({ id, label }) => ({ id, label })) });
+}));
 
-app.put('/api/agent', async (req, res) => {
+/** Novo agente: em branco, ou a partir de outro (template) copiando só as partes escolhidas. */
+app.post('/api/agents', wrap(async (req, res) => {
+  const { name, from, sections, template } = req.body ?? {};
+  let key: string;
+  try {
+    key = await createKit({ name: String(name ?? ''), from: from || null, sections: Array.isArray(sections) ? sections : undefined, template: !!template });
+  } catch (e) {
+    if (e instanceof NotFound) throw e;
+    return res.status(400).json({ error: (e as Error).message });
+  }
+  res.status(201).json(await agentPayload(key));
+}));
+
+app.get('/api/agents/:key', wrap(async (req, res) => { res.json(await agentPayload(String(req.params.key))); }));
+
+app.put('/api/agents/:key', wrap(async (req, res) => {
+  const key = String(req.params.key);
   const kit = req.body?.kit;
   const systemPrompt = req.body?.system_prompt;
   if (!kit || typeof kit !== 'object' || !kit.agent || !kit.kit || typeof systemPrompt !== 'string') {
@@ -157,32 +213,57 @@ app.put('/api/agent', async (req, res) => {
   kit.agent.system_prompt = systemPrompt;
   try {
     kitToAgent(kit, API_KEY); // valida antes de gravar
-    await saveKit(KIT_KEY, kit);
-    await reloadAgent();
   } catch (e) {
-    return res.status(500).json({ error: `Falhou ao salvar/recarregar: ${(e as Error).message}` });
+    return res.status(400).json({ error: `Configuração inválida: ${(e as Error).message}` });
   }
-  res.json(agentPayload());
-});
+  await saveKit(key, kit);
+  forget(key);
+  res.json(await agentPayload(key));
+}));
+
+app.delete('/api/agents/:key', wrap(async (req, res) => {
+  const key = String(req.params.key);
+  try {
+    await deleteKit(key);
+  } catch (e) {
+    if (e instanceof NotFound) throw e;
+    return res.status(400).json({ error: (e as Error).message });
+  }
+  forget(key);
+  res.json({ ok: true });
+}));
+
+/** Liga/desliga o link público ({ enabled }) ou gera uma URL nova ({ regenerate: true }). */
+app.put('/api/agents/:key/public-link', wrap(async (req, res) => {
+  const { enabled, regenerate } = req.body ?? {};
+  res.json(await setPublicLink(String(req.params.key), {
+    enabled: typeof enabled === 'boolean' ? enabled : undefined,
+    regenerate: regenerate === true,
+  }));
+}));
 
 // ---------- Mídia do kit (áudios/vídeos da recepção, biblioteca) ----------
 // Arquivos ficam no MinIO em kits/<kit>/media/ e são referenciados no kit como "media/<arquivo>".
 
 const ALLOWED_MEDIA = /^(audio|video|image)\/|^application\/pdf$/;
 
-app.post('/api/agent/media', express.raw({ type: () => true, limit: '100mb' }), async (req, res) => {
+app.post('/api/agents/:key/media', express.raw({ type: () => true, limit: '100mb' }), wrap(async (req, res) => {
+  const kitKey = String(req.params.key);
+  await getKit(kitKey); // 404 se não existe
   const mime = String(req.headers['content-type'] ?? '');
   if (!ALLOWED_MEDIA.test(mime)) return res.status(415).json({ error: `Tipo não suportado: ${mime || 'desconhecido'}` });
   const original = decodeURIComponent(String(req.query.name ?? 'arquivo'));
   const safe = original.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]+/g, '-').slice(-80);
   const fileName = `${Date.now()}-${safe}`;
-  await putObject(`kits/${KIT_KEY}/media/${fileName}`, req.body as Buffer, mime);
+  await putObject(`kits/${kitKey}/media/${fileName}`, req.body as Buffer, mime);
   res.json({ path: `media/${fileName}`, mime, file_name: original, size: (req.body as Buffer).length });
-});
+}));
 
+// ?kit=<agente>&path=media/<arquivo> (áudios/vídeos da recepção aparecem também na página pública)
 app.get('/api/kit-file', async (req, res) => {
   const rel = String(req.query.path ?? '');
-  const key = rel.startsWith('media/') ? objectKeyFor(rel, KIT_KEY) : null;
+  const kit = String(req.query.kit ?? '');
+  const key = /^[a-z0-9_]+$/.test(kit) && rel.startsWith('media/') ? objectKeyFor(rel, kit) : null;
   if (!key) return res.sendStatus(404);
   await sendObject(key, req, res);
 });
@@ -230,7 +311,8 @@ function computeCost(s: Session) {
 /** Sessão como vai para o front: com custo e sem o `raw` das chamadas (pesado). */
 // Base da calculadora de custo (aba "Custos"): modelos atuais do agente + preços + câmbio.
 // Médias de tokens medidas na conversa real da Mariane (02/11/2026, replay anonimizado).
-app.get('/api/cost/baseline', async (_req, res) => {
+app.get('/api/cost/baseline', wrap(async (req, res) => {
+  const { agent } = await agentFor(String(req.query.kit ?? ''));
   await Promise.all([refreshPrices(API_KEY), refreshFx()]);
   const roles = {
     extractor: modelFor(agent, 'extractor'),
@@ -252,10 +334,10 @@ app.get('/api/cost/baseline', async (_req, res) => {
       leadTurns: 7, aiReplies: 6, files: 2, audioMinutes: 0,
     },
   });
-});
+}));
 
 function view(s: Session, admin = false) {
-  if (PUBLIC_DEMO || !admin) return { ...s, logs: [], cost: computeCost(s) }; // sem prompts para fora
+  if (!admin) return { ...s, logs: [], cost: computeCost(s) }; // sem prompts para fora
   return { ...s, logs: s.logs.map(({ raw: _raw, ...l }) => l), cost: computeCost(s) };
 }
 
@@ -279,7 +361,8 @@ function publish(s: Session) {
   }
 }
 
-function contextFor(s: Session) {
+async function contextFor(s: Session) {
+  const { agent, vision } = await agentFor(s.agentId);
   return { ...buildSimulatorContext(s, agent, llm, vision, publish), pacing: { sleep } };
 }
 
@@ -295,7 +378,7 @@ function scheduleTurn(s: Session, delayMs = SIM_DEBOUNCE_MS) {
     try {
       do {
         t.again = false;
-        await runTurn(contextFor(s));
+        await runTurn(await contextFor(s));
       } while (t.again && s.state.status === 'active');
     } catch (e) {
       console.error('turno falhou', e);
@@ -307,9 +390,18 @@ function scheduleTurn(s: Session, delayMs = SIM_DEBOUNCE_MS) {
   }, delayMs);
 }
 
+/** Sessão da URL, já checando acesso. Responde 404/403 e devolve null quando não pode. */
+async function sessionFor(req: express.Request, res: express.Response): Promise<Session | null> {
+  const s = await sessionRepo.get(String(req.params.id));
+  // conversa do painel não existe para quem não está logado
+  if (!s || (!isAdmin(req) && !s.publicToken)) { res.sendStatus(404); return null; }
+  if (!(await canUse(req, s))) { res.status(403).json({ error: LINK_OFF }); return null; }
+  return s;
+}
+
 app.get('/api/sessions/:id/stream', async (req, res) => {
-  const s = await sessionRepo.get(req.params.id);
-  if (!s) return res.sendStatus(404);
+  const s = await sessionFor(req, res);
+  if (!s) return;
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
   res.flushHeaders();
   const sub = { res, admin: isAdmin(req) };
@@ -321,38 +413,56 @@ app.get('/api/sessions/:id/stream', async (req, res) => {
   req.on('close', () => { clearInterval(ping); set.delete(sub); });
 });
 
-app.post('/api/sessions', async (req, res) => {
-  if (!(await allowNewSession(req.ip ?? '?'))) return res.status(429).json({ error: 'Muitas conversas de teste em pouco tempo. Tente de novo mais tarde.' });
-  const s = await sessionRepo.add(createSession(agent.id, req.body?.phone, req.body?.custom_fields ?? {}));
+const TOO_MANY = 'Muitas conversas de teste em pouco tempo. Tente de novo mais tarde.';
+
+/** Nova conversa: admin escolhe o agente ({ agent }); visitante entra pelo token do link ({ token }). */
+app.post('/api/sessions', wrap(async (req, res) => {
+  const token = typeof req.body?.token === 'string' ? req.body.token : '';
+  let agentKey: string | null;
+  if (token) {
+    agentKey = await kitKeyByToken(token);
+    if (!agentKey) return res.status(403).json({ error: LINK_OFF });
+  } else {
+    if (!isAdmin(req)) return res.status(401).json({ error: 'Login necessário.' });
+    agentKey = String(req.body?.agent ?? '');
+  }
+  await agentFor(agentKey); // 404 se o agente não existe
+  if (!(await allowNewSession(req))) return res.status(429).json({ error: TOO_MANY });
+  const s = createSession(agentKey, req.body?.phone, req.body?.custom_fields ?? {});
+  if (token) s.publicToken = token;
+  await sessionRepo.add(s);
   res.json(view(s, isAdmin(req)));
-});
+}));
 
 app.get('/api/sessions/:id', async (req, res) => {
-  const s = await sessionRepo.get(req.params.id);
-  s ? res.json(view(s, isAdmin(req))) : res.sendStatus(404);
+  const s = await sessionFor(req, res);
+  if (s) res.json(view(s, isAdmin(req)));
 });
 
 app.post('/api/sessions/:id/reset', async (req, res) => {
-  if (!(await allowNewSession(req.ip ?? '?'))) return res.status(429).json({ error: 'Muitas conversas de teste em pouco tempo. Tente de novo mais tarde.' });
-  const old = await sessionRepo.get(req.params.id);
-  await sessionRepo.delete(req.params.id);
-  const s = await sessionRepo.add(createSession(agent.id, old?.phone, req.body?.custom_fields ?? {}));
+  const old = await sessionFor(req, res);
+  if (!old) return;
+  if (!(await allowNewSession(req))) return res.status(429).json({ error: TOO_MANY });
+  await sessionRepo.delete(old.id);
+  const s = createSession(old.agentId, old.phone, req.body?.custom_fields ?? {});
+  s.publicToken = old.publicToken ?? null;
+  await sessionRepo.add(s);
   res.json(view(s, isAdmin(req)));
 });
 
 // Lead de formulário: o botão "Iniciar" do simulador faz a IA abrir a conversa (sem mensagem do lead).
 app.post('/api/sessions/:id/start', async (req, res) => {
-  const s = await sessionRepo.get(req.params.id);
-  if (!s) return res.sendStatus(404);
+  const s = await sessionFor(req, res);
+  if (!s) return;
   const untouched = s.state.status === 'active' && s.state.turnsCount === 0 && !s.messages.some((m) => m.role === 'user');
   if (untouched && !turns.get(s.id)?.running) scheduleTurn(s, 0);
   res.status(202).json(view(s, isAdmin(req)));
 });
 
 app.post('/api/sessions/:id/messages', async (req, res) => {
-  const s = await sessionRepo.get(req.params.id);
-  if (!s) return res.sendStatus(404);
-  if (tooManyMessages(s)) return res.status(429).json({ error: LIMIT_MSG });
+  const s = await sessionFor(req, res);
+  if (!s) return;
+  if (tooManyMessages(req, s)) return res.status(429).json({ error: LIMIT_MSG });
 
   const body = String(req.body.body ?? '').trim();
   if (!body) return res.status(400).json({ error: 'Mensagem vazia' });
@@ -369,9 +479,9 @@ const EXT_BY_MIME: Record<string, string> = {
 };
 
 app.post('/api/sessions/:id/file', express.raw({ type: () => true, limit: '50mb' }), async (req, res) => {
-  const s = await sessionRepo.get(req.params.id);
-  if (!s) return res.sendStatus(404);
-  if (tooManyMessages(s)) return res.status(429).json({ error: LIMIT_MSG });
+  const s = await sessionFor(req, res);
+  if (!s) return;
+  if (tooManyMessages(req, s)) return res.status(429).json({ error: LIMIT_MSG });
   const mime = String(req.headers['content-type'] ?? '').split(';')[0].trim();
   if (!FILE_MIME.test(mime)) return res.status(415).json({ error: `Formato não suportado (${mime || 'desconhecido'}). Envie foto (PNG/JPG/WEBP), PDF ou vídeo.` });
   const data = req.body as Buffer;
@@ -393,7 +503,7 @@ app.post('/api/sessions/:id/file', express.raw({ type: () => true, limit: '50mb'
 
 /** Mensagem do lead já registrada → intake → agenda o turno. A resposta da IA chega pelo /stream. */
 async function ingest(s: Session, msg: SimMessage, res: express.Response) {
-  const ctx = contextFor(s);
+  const ctx = await contextFor(s);
   publish(s);
 
   if (s.state.status !== 'active') {
@@ -411,9 +521,9 @@ async function ingest(s: Session, msg: SimMessage, res: express.Response) {
 // entra no fluxo. Sem transcrição o motor trata como mídia ilegível (passa para humano), igual produção.
 
 app.post('/api/sessions/:id/audio', express.raw({ type: () => true, limit: '25mb' }), async (req, res) => {
-  const s = await sessionRepo.get(req.params.id);
-  if (!s) return res.sendStatus(404);
-  if (tooManyMessages(s)) return res.status(429).json({ error: LIMIT_MSG });
+  const s = await sessionFor(req, res);
+  if (!s) return;
+  if (tooManyMessages(req, s)) return res.status(429).json({ error: LIMIT_MSG });
   const mime = String(req.headers['content-type'] ?? 'audio/webm');
   if (!mime.startsWith('audio/')) return res.status(415).json({ error: `Tipo não suportado: ${mime}` });
   const audio = req.body as Buffer;
@@ -431,14 +541,14 @@ app.post('/api/sessions/:id/audio', express.raw({ type: () => true, limit: '25mb
   msg.transcript = t.text;
   if (t.seconds) s.audioUsage.push({ model: TRANSCRIBE_MODEL, seconds: t.seconds, messageId: msg.id });
   if (!t.text) {
-    await contextFor(s).pipeline.emitEvent({ kind: 'info', message: `Não consegui transcrever o áudio (${t.error}).` });
+    await (await contextFor(s)).pipeline.emitEvent({ kind: 'info', message: `Não consegui transcrever o áudio (${t.error}).` });
   }
   return ingest(s, msg, res);
 });
 
 app.get('/api/sim-file', async (req, res) => {
   const rel = String(req.query.path ?? '');
-  const key = objectKeyFor(rel.startsWith('sim/') ? rel : `sim/${rel}`, KIT_KEY);
+  const key = objectKeyFor(rel.startsWith('sim/') ? rel : `sim/${rel}`, '');
   if (!key || key === 'sim/') return res.sendStatus(404);
   await sendObject(key, req, res);
 });
@@ -447,12 +557,11 @@ app.get('/api/sim-file', async (req, res) => {
 
 async function main() {
   await connectAll();
-  KIT_KEY = await ensureKit(KIT_SEED, KIT_KEY || undefined);
-  await reloadAgent();
+  await seedKitIfEmpty(KIT_SEED);
   setInterval(() => sessionRepo.evictIdle((id) => !!turns.get(id)?.running || !!subscribers.get(id)?.size), 5 * 60 * 1000).unref();
 
   const port = Number(process.env.PORT ?? 3000);
-  const server = app.listen(port, () => console.log(`Simulador em http://localhost:${port} (kit ${KIT_KEY})`));
+  const server = app.listen(port, () => console.log(`Simulador em http://localhost:${port}`));
 
   const shutdown = async (sig: string) => {
     console.log(`${sig}: gravando sessões e desligando…`);

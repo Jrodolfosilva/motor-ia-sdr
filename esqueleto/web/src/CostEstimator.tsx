@@ -28,7 +28,7 @@ const MARGINS = [0, 20, 30, 50];
 /** US$ de uma chamada com os tokens médios medidos. */
 const callUsd = (p: Price | null, t: { input: number; output: number }) => (p ? (t.input * p.input + t.output * p.output) / 1_000_000 : 0);
 
-export default function CostEstimator() {
+export default function CostEstimator({ agentKey }: { agentKey: string }) {
   const [base, setBase] = useState<Baseline | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -53,7 +53,7 @@ export default function CostEstimator() {
   const load = () => {
     setLoading(true);
     setError(null);
-    fetch('/api/cost/baseline')
+    fetch(`/api/cost/baseline?kit=${encodeURIComponent(agentKey)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
       .then((b: Baseline) => {
         setBase(b);

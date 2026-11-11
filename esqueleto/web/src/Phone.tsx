@@ -146,7 +146,8 @@ function AnalysisLine({ m }: { m: SimMessage }) {
 }
 
 /** Primeira mensagem sugerida para o lead frio (já vem escrita na caixa). */
-export const COLD_LEAD_DRAFT = 'Olá, gostaria de mais informações sobre salário-maternidade';
+/** Mensagem padrão do lead frio quando o agente não define `test_lead.cold_message`. */
+export const COLD_LEAD_DRAFT = 'Olá, gostaria de mais informações';
 
 export default function Phone({ contactName, messages, typing, closed, documents, onSend, onSendFile, onSendAudio, draft, startButton }: Props) {
   const [text, setText] = useState(draft ?? '');

@@ -1,7 +1,10 @@
 // Script de embed do simulador. Uso em qualquer página:
 //
 //   <div id="hub-ia-simulador"></div>
-//   <script src="https://SEU-SERVIDOR/embed/hub-ia-simulador.js"></script>
+//   <script src="https://SEU-SERVIDOR/embed/hub-ia-simulador.js" data-token="TOKEN-DO-LINK"></script>
+//
+// data-token (obrigatório): o token do link público do agente (a parte final de /t/<token>, no editor do
+// agente → "Link público e teste"). Desligar o link no painel desliga o embed também.
 //
 // Atributos opcionais no <script>:
 //   data-api="https://..."            servidor (padrão: a mesma origem do script)
@@ -28,6 +31,7 @@ function readOptions(): { api: string; target: string | null; options: EmbedOpti
     api: d.api || (script?.src ? new URL(script.src).origin : location.origin),
     target: d.target ?? null,
     options: {
+      token: d.token ?? '',
       lead: d.lead === 'frio' ? 'frio' : 'form',
       showLeadSwitch: d.leadSwitch !== 'false',
       title: d.title,

@@ -17,7 +17,8 @@ import {
 } from './reception';
 
 const HISTORY_LIMIT = 40;
-const DEFAULT_REACT_TYPES = ['ultrassom', 'cartao_gestante', 'teste_gravidez', 'certidao_nascimento'];
+// Tipos de documento que ganham reação ❤️ vêm do kit (vision_context.react_to_types); padrão: nenhum.
+const DEFAULT_REACT_TYPES: string[] = [];
 
 export const VIDEO_HISTORY_LINE = '[Vídeo enviado pela lead - você não assiste vídeos]';
 export const AUDIO_FAIL_LINE = '[Áudio enviado pela lead que não deu para entender]';
