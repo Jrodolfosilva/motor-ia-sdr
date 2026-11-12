@@ -230,6 +230,8 @@ export interface KitFile {
 export interface PublicAgent {
   key: string;
   name: string;
+  /** Perguntas do roteiro (só chave e rótulo): viram os campos do formulário de teste. */
+  fields: { key: string; label: string }[];
   documents: RequiredDocument[];
   test_lead: TestLead | null;
 }

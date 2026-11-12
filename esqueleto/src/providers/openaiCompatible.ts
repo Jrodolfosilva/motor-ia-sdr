@@ -7,8 +7,13 @@ const ENDPOINTS = {
   deepseek: 'https://api.deepseek.com/chat/completions',
 } as const;
 
-const TIMEOUT_MS = 20_000;
+// Modelos com raciocínio (ex: DeepSeek V4 Pro) levam 30s+ num prompt grande sem cache: 20s cortava
+// a resposta e o retry recomeçava do zero. LLM_TIMEOUT_MS ajusta sem mexer no código.
+const TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS ?? 60_000);
 const RETRIES = 2;
+/** Estouro de tempo repete só uma vez (cada tentativa já esperou o limite inteiro). */
+const TIMEOUT_RETRIES = 1;
+const isTimeout = (e: unknown) => e instanceof Error && (e.name === 'TimeoutError' || /timeout/i.test(e.message));
 
 function toOpenAiContent(c: ChatMessage['content']) {
   if (typeof c === 'string') return c;
@@ -19,6 +24,7 @@ function toOpenAiContent(c: ChatMessage['content']) {
 
 async function postWithRetry(url: string, apiKey: string, body: unknown, timeoutMs = TIMEOUT_MS): Promise<any> {
   let lastErr: unknown;
+  let timeouts = 0;
   for (let attempt = 0; attempt <= RETRIES; attempt++) {
     try {
       const res = await fetch(url, {
@@ -35,6 +41,7 @@ async function postWithRetry(url: string, apiKey: string, body: unknown, timeout
       lastErr = e;
       const isHttpNonRetriable = e instanceof Error && /^HTTP (4\d\d)/.test(e.message) && !e.message.startsWith('HTTP 429');
       if (isHttpNonRetriable) throw e;
+      if (isTimeout(e) && ++timeouts > TIMEOUT_RETRIES) throw e;
     }
     if (attempt < RETRIES) await new Promise((r) => setTimeout(r, 1000));
   }

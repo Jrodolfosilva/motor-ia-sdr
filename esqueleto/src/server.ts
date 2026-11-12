@@ -123,7 +123,7 @@ const esc = (v: string) => v.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 const publicPage = (title: string, body: string) => `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>${esc(title)}</title>
-<style>body{margin:0;font-family:system-ui,sans-serif;background:#efefed;color:#18181b}main{max-width:900px;margin:0 auto;padding:24px 16px}
+<style>body{margin:0;font-family:system-ui,sans-serif;background:#efefed;color:#18181b}main{max-width:1100px;margin:0 auto;padding:24px 16px}
 h1{font-size:22px;text-align:center;margin:8px 0 4px}p{text-align:center;color:#71717a;margin:0 0 16px}</style></head>
 <body><main>${body}</main></body></html>`;
 
@@ -158,7 +158,7 @@ const tooManyMessages = (req: express.Request, s: Session) =>
   !isAdmin(req) && s.messages.filter((m) => m.role === 'user').length >= DEMO_MAX_MESSAGES;
 const LIMIT_MSG = 'Limite de mensagens desta conversa de teste atingido. Clique em "Recomeçar".';
 
-/** O que a página pública precisa: nome, documentos e o lead de teste. Sem prompt/config. */
+/** O que a página pública precisa: nome, perguntas (só rótulos), documentos e lead de teste. Sem prompt/config. */
 app.get('/api/public/agent', wrap(async (req, res) => {
   const key = await kitKeyByToken(String(req.query.t ?? ''));
   if (!key) return res.status(404).json({ error: LINK_OFF });
@@ -166,6 +166,8 @@ app.get('/api/public/agent', wrap(async (req, res) => {
   res.json({
     key,
     name: raw.agent?.name ?? agent.kit.name,
+    // a pergunta (texto que a IA manda) é amigável; o label é instrução interna do extrator
+    fields: agent.required_fields.map((f) => ({ key: f.key, label: f.question || f.label })),
     documents: agent.required_documents.map((d) => ({ key: d.key, label: d.label, file_types: d.file_types, accepted: d.accepted, request_message: '' })),
     test_lead: raw.agent?.test_lead ?? null,
   });
