@@ -104,7 +104,7 @@
           },
           {
             "kind": "text",
-            "text": "Vi que você já preencheu nosso formulário 🥰 Vou só confirmar seus dados rapidinho e te pedir os documentos pra adiantar sua análise."
+            "text": "Recebi seu formulário 🥰 Vou só confirmar seus dados rapidinho e te pedir os documentos pra adiantar sua análise."
           }
         ]
       }
@@ -114,8 +114,8 @@
       "after": "continue",
       "trigger_fields": [
         "situacao_trabalho",
-        "data_parto",
-        "data_saida_ctps"
+        "data_saida_ctps",
+        "data_parto"
       ],
       "messages": [
         {
@@ -146,36 +146,21 @@
     "required_fields": [
       {
         "key": "situacao_trabalho",
-        "label": "Situação de trabalho hoje. Salve exatamente um destes: \"empregada registrada\" (trabalha de carteira assinada hoje, inclusive afastada ou de licença), \"desempregada\", \"autônoma/MEI\" ou \"rural\"",
-        "question": "Hoje você está trabalhando de carteira assinada, está desempregada, ou contribui como autônoma/MEI?",
-        "confirm_question": "Vi aqui no seu cadastro que hoje você está {valor}, certo?"
-      },
-      {
-        "key": "data_parto",
-        "label": "Data prevista do parto, ou data de nascimento se o bebê já nasceu (DD/MM/AAAA ou MM/AAAA). Se a previsão que consta já passou, NÃO confirme com um \"sim\": só registre quando ela disser a data real de nascimento (ou que ainda não nasceu e a nova previsão)",
-        "question": "Pra quando é a previsão do parto? Se o bebê já nasceu, qual foi a data?",
-        "confirm_question": "A previsão do parto é pra {valor}, confere?"
+        "label": "Situação de trabalho hoje. Salve exatamente um destes: \"desempregada\" ou \"empregada registrada\" (trabalha de carteira assinada hoje, inclusive afastada ou de licença). Se for autônoma/MEI ou rural, salve \"autônoma/MEI\" ou \"rural\"",
+        "question": "Você está desempregada hoje?",
+        "confirm_question": "Pelo seu cadastro, hoje você está {valor}, certo?"
       },
       {
         "key": "data_saida_ctps",
-        "label": "Data de saída do último emprego com carteira assinada (DD/MM/AAAA; \"ainda trabalhando\" se está registrada hoje; \"nunca trabalhou registrada\" se for o caso)",
-        "question": "Qual foi a data de saída da última empresa em que você trabalhou com carteira assinada?",
-        "confirm_question": "E sua saída da última empresa com carteira assinada foi em {valor}, isso?"
+        "label": "Quando saiu do último emprego com carteira assinada: data (DD/MM/AAAA ou MM/AAAA) ou há quanto tempo (ex: \"há 4 meses\"); \"nunca trabalhou registrada\" se for o caso",
+        "question": "Há quanto tempo você saiu do seu último emprego de carteira assinada?",
+        "confirm_question": "E você saiu do último emprego {valor}, isso?"
       },
       {
-        "key": "email",
-        "label": "E-mail",
-        "question": "Agora me passa seu e-mail, por favor?"
-      },
-      {
-        "key": "estado_civil",
-        "label": "Estado civil",
-        "question": "E qual é seu estado civil?"
-      },
-      {
-        "key": "contatos_recado",
-        "label": "2 telefones para recado, cada um com nome e grau de parentesco",
-        "question": "Preciso de 2 telefones pra recado, caso não consiga falar com você - com o nome e o grau de parentesco de cada um."
+        "key": "data_parto",
+        "label": "Se o bebê já nasceu: data de nascimento. Se não nasceu: \"ainda não nasceu\" + previsão do parto (DD/MM/AAAA ou MM/AAAA). Se a previsão que consta já passou, NÃO confirme com um \"sim\": só registre quando ela disser a data real de nascimento (ou que ainda não nasceu e a nova previsão)",
+        "question": "Seu bebê já nasceu? Se sim, quando? Se ainda não, qual a previsão do parto?",
+        "confirm_question": "Sobre o bebê: {valor}, confere?"
       }
     ],
     "required_documents": [
@@ -520,7 +505,9 @@
     "test_lead": {
       "cold_message": "Olá, gostaria de mais informações sobre salário-maternidade",
       "form_answers": {
-        "Você está grávida atualmente?": "Sim"
+        "situacao_trabalho": "desempregada",
+        "data_saida_ctps": "saí há 4 meses",
+        "data_parto": "ainda não nasceu, previsão para 03/2027"
       }
     }
   }

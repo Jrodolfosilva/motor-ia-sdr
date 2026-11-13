@@ -88,6 +88,12 @@ export default function Simulator({ agentKey }: { agentKey: string }) {
     api.getAgent(agentKey).then((a) => {
       setAgentName(a.kit.agent.name ?? a.kit.kit.name);
       setTestLead(a.kit.agent.test_lead ?? null);
+      // respostas do lead de teste já aparecem preenchidas (chave = pergunta do roteiro)
+      const answers = a.kit.agent.test_lead?.form_answers ?? {};
+      const keys = new Set(a.kit.agent.required_fields.map((f) => f.key));
+      setForm((prev) => Object.keys(prev).length ? prev
+        : Object.fromEntries(Object.entries(answers).filter(([k]) => keys.has(k))));
+      setExtras((prev) => prev || Object.entries(answers).filter(([k]) => !keys.has(k)).map(([k, v]) => `${k}: ${v}`).join('\n'));
       setFields(a.kit.agent.required_fields);
       setDocs(a.kit.agent.required_documents ?? []);
       setCrmCfg(a.kit.agent.crm ?? null);
