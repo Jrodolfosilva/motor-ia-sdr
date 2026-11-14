@@ -101,6 +101,16 @@ export interface MediaItem {
 
 export type ReceptionKind = 'text' | 'audio' | 'video';
 
+/**
+ * Pergunta frequente. `answer` = o que a IA sabe para responder com as palavras dela.
+ * `replies` = respostas prontas (texto fixo, áudio ou vídeo da equipe); o motor alterna o formato.
+ */
+export interface FaqEntry {
+  question: string;
+  answer: string;
+  replies?: ReceptionMessage[] | null;
+}
+
 /** Uma mensagem da recepção: texto, ou áudio/vídeo gravado pela equipe. */
 export interface ReceptionMessage {
   kind: ReceptionKind;
@@ -186,7 +196,7 @@ export interface Kit {
   id: string;
   name: string;
   company_info?: string | null;
-  faq: { question: string; answer: string }[];
+  faq: FaqEntry[];
   media_library: MediaItem[];
   vision_context?: {
     /** Frase de contexto do analisador de arquivos (ex: "Você analisa arquivos que leads enviam para um escritório de salário-maternidade."). */
@@ -316,6 +326,10 @@ export interface ConversationState {
   followupStage?: string | null;
   /** Sequência de follow-up esgotada (passos + espera final) sem resposta. */
   followupDone?: boolean;
+  /** Respostas prontas de FAQ já enviadas ("<índice da pergunta>:<índice do formato>"). */
+  faqSent?: string[];
+  /** Formato da última resposta pronta de FAQ (para variar: texto / áudio / vídeo). */
+  faqLastKind?: ReceptionKind | null;
 }
 
 export interface ChatMessage {

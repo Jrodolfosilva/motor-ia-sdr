@@ -10,6 +10,7 @@ import { DEFAULT_BUBBLE_DELAY, inState, splitIntoBubbles, stateFor, typingDelayS
 import { extract } from './agents/extractor';
 import { decide } from './agents/qualifier';
 import { reply } from './agents/responder';
+import { nextFaqReplies, sendFaqReply, type FaqPick } from './faq';
 import { mediaNotices, newInbound, repliesToUnreadable } from './guardrails';
 import { classificationEvent, fireCrm } from './crm';
 import {
@@ -149,6 +150,7 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
   // 8. extractor → qualifier → responder
   let text: string;
   let requestedMedia: string[];
+  let faqToSend: { index: number; pick: FaqPick } | null = null;
   let inlineExplanation: ReceptionMessage[] | null = null;
   try {
     const ex = await extract(llm, agent, history, known, progress(), ctx.now);
@@ -229,13 +231,15 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
     }
     inlineExplanation = explanation === 'inline' || explanation === 'inline_wait' ? exMsgs : null;
 
-    const sent = (await store.loadState()).sentMediaIds;
-    const r = await reply(llm, agent, history, known, isFirstResponderTurn, contact.phone, sent, ctx.now, progress(), explanation, notices, onlyUnusable);
+    const st = await store.loadState();
+    const faqNext = nextFaqReplies(agent.kit.faq, st);
+    const r = await reply(llm, agent, history, known, isFirstResponderTurn, contact.phone, st.sentMediaIds, ctx.now, progress(), explanation, notices, onlyUnusable, faqNext);
     await ctx.usage.record(r.log, userMessage ?? null);
     text = r.text;
     requestedMedia = r.requestedMedia;
+    if (r.requestedFaq != null) faqToSend = { index: r.requestedFaq, pick: faqNext[r.requestedFaq] };
 
-    if (text === '' && requestedMedia.length === 0 && !inlineExplanation) throw new Error('Responder returned an empty reply');
+    if (text === '' && requestedMedia.length === 0 && !inlineExplanation && !faqToSend) throw new Error('Responder returned an empty reply');
   } catch (err) {
     await pipeline.emitEvent({ kind: 'info', message: `Falha ao chamar o provedor de IA: ${(err as Error).message.slice(0, 300)}` });
     if (agent.fallback_message) await sendBubbles(ctx, [agent.fallback_message], null);
@@ -255,7 +259,8 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
     if (!(await sendBubbles(ctx, splitIntoBubbles(after), lastSeenInboundId))) return;
   } else if (!(await sendBubbles(ctx, splitIntoBubbles(text), lastSeenInboundId))) return;
 
-  // 10. mídia da biblioteca
+  // 10. resposta pronta do FAQ (texto/áudio/vídeo da equipe) e mídia da biblioteca
+  if (faqToSend) await sendFaqReply(ctx, faqToSend.index, faqToSend.pick);
   await sendLibraryMedia(ctx, requestedMedia);
 }
 

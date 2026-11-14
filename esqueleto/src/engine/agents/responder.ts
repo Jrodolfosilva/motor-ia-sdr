@@ -1,5 +1,6 @@
 import { modelFor, type Agent, type CallLog, type ChatMessage, type LlmProvider, type MediaItem, type ToolDef } from '../types';
 import { RequiredFieldsStatus, type RoteiroProgress } from '../rules/requiredFields';
+import { faqPickLine, type FaqPick } from '../faq';
 import { elapsedNote } from '../rules/classificationRules';
 import { conductBlock } from '../guardrails';
 
@@ -23,6 +24,18 @@ function mediaTool(items: MediaItem[]): ToolDef {
       type: 'object',
       properties: { midia_id: { type: 'string', enum: items.map((i) => i.id), description: 'Id do item da biblioteca.' } },
       required: ['midia_id'],
+    },
+  };
+}
+
+function faqTool(indices: number[]): ToolDef {
+  return {
+    name: 'responder_faq',
+    description: 'Envia a resposta pronta (texto, áudio ou vídeo da equipe) de uma PERGUNTA FREQUENTE que a lead acabou de fazer. Chame só quando ela perguntar aquilo.',
+    parameters: {
+      type: 'object',
+      properties: { pergunta: { type: 'integer', enum: indices, description: 'Número da pergunta frequente.' } },
+      required: ['pergunta'],
     },
   };
 }
@@ -60,7 +73,7 @@ function insistInfo(status: RequiredFieldsStatus, key: string, why?: string | nu
 export function buildResponderPrompt(
   agent: Agent, known: Record<string, unknown>, isFirstTurn: boolean, phone: string | null,
   media: MediaItem[], now?: Date, progress: RoteiroProgress = {}, explanation: ExplanationState = 'off',
-  notices: string[] = [], onlyUnusable = false,
+  notices: string[] = [], onlyUnusable = false, faqNext: Record<number, FaqPick> = {},
 ): string {
   const parts: string[] = [agent.system_prompt, timeContextLine(phone, now)];
   const kit = agent.kit;
@@ -82,7 +95,13 @@ export function buildResponderPrompt(
     : 'MODO DE ATENDIMENTO - LEAD FRIO (volume, sem cadastro): faça a pré-qualificação completa. Recepção calorosa, colete as PERGUNTAS do roteiro UMA por vez e, quando o caso fizer sentido, peça os DOCUMENTOS, um por vez.');
 
   if (kit.faq.length) {
-    parts.push(`### BASE DE CONHECIMENTO (PERGUNTAS FREQUENTES)\nVocê pode responder às seguintes dúvidas caso o lead pergunte:\n${kit.faq.map((e) => `- Q: ${e.question} | A: ${e.answer}`).join('\n')}`);
+    const lines = kit.faq.map((e, i) => {
+      const pick = faqNext[i];
+      const base = `- [${i}] Q: ${e.question} | A: ${e.answer}`;
+      return pick ? `${base}\n    RESPOSTA PRONTA: se ela perguntar isso, chame responder_faq(${i}) - ${faqPickLine(pick)}` : base;
+    });
+    const hasReady = Object.keys(faqNext).length > 0;
+    parts.push(`### BASE DE CONHECIMENTO (PERGUNTAS FREQUENTES)\nVocê pode responder às seguintes dúvidas caso o lead pergunte:\n${lines.join('\n')}${hasReady ? '\nPerguntas com RESPOSTA PRONTA: use responder_faq (a resposta da equipe sai automaticamente, logo depois da sua mensagem). Sem resposta pronta: responda você, com base no A.' : ''}`);
   }
 
   if (explanation !== 'off') {
@@ -218,21 +237,22 @@ ${lines}`);
 export async function reply(
   llm: LlmProvider, agent: Agent, history: ChatMessage[], known: Record<string, unknown>,
   isFirstTurn: boolean, phone: string | null, sentMediaIds: string[], now?: Date, progress: RoteiroProgress = {},
-  explanation: ExplanationState = 'off', notices: string[] = [], onlyUnusable = false,
-): Promise<{ text: string; requestedMedia: string[]; log: CallLog }> {
+  explanation: ExplanationState = 'off', notices: string[] = [], onlyUnusable = false, faqNext: Record<number, FaqPick> = {},
+): Promise<{ text: string; requestedMedia: string[]; requestedFaq: number | null; log: CallLog }> {
   const media = availableMedia(agent, sentMediaIds);
-  const system = buildResponderPrompt(agent, known, isFirstTurn, phone, media, now, progress, explanation, notices, onlyUnusable);
+  const system = buildResponderPrompt(agent, known, isFirstTurn, phone, media, now, progress, explanation, notices, onlyUnusable, faqNext);
   const model = modelFor(agent, 'responder');
+  const faqIdx = Object.keys(faqNext).map(Number);
+  const tools = [...(media.length ? [mediaTool(media)] : []), ...(faqIdx.length ? [faqTool(faqIdx)] : [])];
 
-  const res = await llm.chat({
-    apiKey: agent.apiKey, model, messages: history, system,
-    tools: media.length ? [mediaTool(media)] : [], temperature: TEMPERATURE,
-  });
+  const res = await llm.chat({ apiKey: agent.apiKey, model, messages: history, system, tools, temperature: TEMPERATURE });
 
   const ids = new Set(media.map((m) => m.id));
   const requestedMedia = [...new Set(
     res.toolCalls.filter((c) => c.name === 'enviar_midia').map((c) => c.arguments.midia_id).filter((id) => ids.has(id)),
   )];
+  const faqCall = res.toolCalls.find((c) => c.name === 'responder_faq' && faqIdx.includes(Number(c.arguments.pergunta)));
+  const requestedFaq = faqCall ? Number(faqCall.arguments.pergunta) : null;
 
-  return { text: res.text.trim(), requestedMedia, log: { step: 'responder', systemPrompt: system, model, raw: res.raw } };
+  return { text: res.text.trim(), requestedMedia, requestedFaq, log: { step: 'responder', systemPrompt: system, model, raw: res.raw } };
 }

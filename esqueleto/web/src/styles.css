@@ -578,3 +578,6 @@ a.wa-file { color: inherit; text-decoration: none; }
 .fu-step-head .icon-btn { width: 30px; height: 30px; margin-left: auto; }
 .fu-delay input { width: 110px; }
 .fu-next { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.faq-reply { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-bottom: 12px; }
+.faq-reply > .item { width: 100%; }
+.faq-add { display: flex; gap: 8px; flex-wrap: wrap; }

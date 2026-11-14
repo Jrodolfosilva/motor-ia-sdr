@@ -197,7 +197,8 @@ export interface RequiredDocument {
 }
 
 export interface FollowUpStep { step: number; delay_minutes: number; message: string; is_active: boolean }
-export interface Faq { question: string; answer: string }
+/** Pergunta frequente. `replies` = respostas prontas (texto/áudio/vídeo); o motor alterna o formato. */
+export interface Faq { question: string; answer: string; replies?: ReceptionMessage[] | null }
 
 /** Lead de teste do simulador/link público. */
 export interface TestLead { cold_message?: string | null; name?: string; phone?: string; form_answers?: Record<string, string> }

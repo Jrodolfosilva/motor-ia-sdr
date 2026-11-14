@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import ReceptionEditor, { emptyReception } from './ReceptionEditor';
+import ReceptionEditor, { emptyReception, Slot } from './ReceptionEditor';
 import ExplanationEditor, { emptyExplanation } from './ExplanationEditor';
 import GuardrailsEditor, { emptyGuardrails } from './GuardrailsEditor';
 import CrmEditor, { emptyCrm } from './CrmEditor';
@@ -691,18 +691,46 @@ export default function AgentEditor({ agentKey, onSaved }: { agentKey: string; o
           {section === 'faq' && (
             <>
               <h2>FAQ</h2>
-              {k.faq.map((q, i) => (
-                <Card
-                  key={i}
-                  title={q.question || 'Nova pergunta'}
-                  onRemove={() => setKitInfo({ faq: k.faq.filter((_, j) => j !== i) })}
-                  onUp={i > 0 ? () => setKitInfo({ faq: move(k.faq, i, -1) }) : undefined}
-                  onDown={i < k.faq.length - 1 ? () => setKitInfo({ faq: move(k.faq, i, 1) }) : undefined}
-                >
-                  <Text label="Pergunta" value={q.question} onChange={(v) => { const faq = [...k.faq]; faq[i] = { ...q, question: v }; setKitInfo({ faq }); }} />
-                  <Area label="Resposta" rows={2} value={q.answer} onChange={(v) => { const faq = [...k.faq]; faq[i] = { ...q, answer: v }; setKitInfo({ faq }); }} />
-                </Card>
-              ))}
+              <p className="muted">
+                Dúvidas comuns. Sem resposta pronta, a IA responde com as palavras dela usando a Resposta.
+                Com respostas prontas (texto, áudio ou vídeo da equipe), a IA só decide a hora e o motor envia uma delas,
+                variando o formato ao longo da conversa (ex: áudio na primeira dúvida, vídeo na seguinte, texto depois) e sem repetir o mesmo arquivo.
+              </p>
+              {k.faq.map((q, i) => {
+                const updFaq = (patch: Partial<typeof q>) => { const faq = [...k.faq]; faq[i] = { ...q, ...patch }; setKitInfo({ faq }); };
+                const replies = q.replies ?? [];
+                const ready = replies.filter((r) => r.enabled !== false).map((r) => (r.kind === 'text' ? 'texto' : r.kind === 'audio' ? 'áudio' : 'vídeo'));
+                return (
+                  <Card
+                    key={i}
+                    title={<>{q.question || 'Nova pergunta'}{ready.length ? <small className="muted"> · pronta: {ready.join(', ')}</small> : null}</>}
+                    onRemove={() => setKitInfo({ faq: k.faq.filter((_, j) => j !== i) })}
+                    onUp={i > 0 ? () => setKitInfo({ faq: move(k.faq, i, -1) }) : undefined}
+                    onDown={i < k.faq.length - 1 ? () => setKitInfo({ faq: move(k.faq, i, 1) }) : undefined}
+                  >
+                    <Text label="Pergunta" value={q.question} onChange={(v) => updFaq({ question: v })} />
+                    <Area label="Resposta (o que a IA sabe)" rows={2} value={q.answer} onChange={(v) => updFaq({ answer: v })} />
+                    <details className="fu-box" open={replies.length > 0}>
+                      <summary>Respostas prontas {replies.length ? `(${replies.length})` : '(nenhuma: a IA responde)'}</summary>
+                      {replies.map((r, j) => (
+                        <div key={j} className="faq-reply">
+                          <Slot
+                            title={`Formato ${j + 1}`}
+                            msg={r}
+                            onChange={(m) => updFaq({ replies: replies.map((x, n) => (n === j ? m : x)) })}
+                          />
+                          <button className="btn small danger" onClick={() => updFaq({ replies: replies.filter((_, n) => n !== j) })}>Remover formato</button>
+                        </div>
+                      ))}
+                      <div className="faq-add">
+                        <button className="btn small add" onClick={() => updFaq({ replies: [...replies, { kind: 'audio', enabled: true, media: null, transcript: q.answer || null }] })}>+ Áudio</button>
+                        <button className="btn small add" onClick={() => updFaq({ replies: [...replies, { kind: 'video', enabled: true, media: null, transcript: q.answer || null }] })}>+ Vídeo</button>
+                        <button className="btn small add" onClick={() => updFaq({ replies: [...replies, { kind: 'text', enabled: true, text: q.answer }] })}>+ Texto</button>
+                      </div>
+                    </details>
+                  </Card>
+                );
+              })}
               <button className="btn add" onClick={() => setKitInfo({ faq: [...k.faq, { question: '', answer: '' }] })}>+ Adicionar pergunta</button>
             </>
           )}
