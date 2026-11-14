@@ -29,13 +29,16 @@ interface FormRow { id: string; question: string; value: string; fixed: boolean 
 
 const DEFAULT_PHONE = '5511999999999';
 
+/** Campos na ordem do formulário de teste (como a lead viu no anúncio); perguntas do roteiro que faltam vão no fim. */
 function initialRows(fields: { key: string; label: string }[], tl: TestLead | null, extra?: Record<string, string>): FormRow[] {
-  const rows: FormRow[] = fields.map((f) => ({ id: f.key, question: f.label, value: '', fixed: true }));
+  const rows: FormRow[] = [];
   for (const [q, v] of Object.entries({ ...(tl?.form_answers ?? {}), ...(extra ?? {}) })) {
-    const same = rows.find((r) => r.id === q || r.question === q);
+    const f = fields.find((x) => x.key === q || x.label === q);
+    const same = rows.find((r) => r.id === (f?.key ?? q));
     if (same) same.value = v;
-    else rows.push({ id: q, question: q, value: v, fixed: true });
+    else rows.push({ id: f?.key ?? q, question: f?.label ?? q, value: v, fixed: true });
   }
+  for (const f of fields) if (!rows.some((r) => r.id === f.key)) rows.push({ id: f.key, question: f.label, value: '', fixed: true });
   return rows;
 }
 
