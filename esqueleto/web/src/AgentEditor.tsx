@@ -5,7 +5,7 @@ import GuardrailsEditor, { emptyGuardrails } from './GuardrailsEditor';
 import CrmEditor, { emptyCrm } from './CrmEditor';
 import PublicLinkCard from './PublicLinkCard';
 import {
-  api, type AgentConfig, type PublicLink, type Reception, type ReceptionMessage, type ClassificationLabel, type DocumentFileType, type KitFile, type RequiredDocument, type Rule, type RuleOperator,
+  api, type AgentConfig, type PublicLink, type Reception, type ReceptionMessage, type ClassificationLabel, type DocumentFileType, type FollowUpStep, type KitFile, type RequiredDocument, type Rule, type RuleOperator,
 } from './api';
 
 type Section = 'geral' | 'conduta' | 'crm' | 'recepcao' | 'explicacao' | 'prompt' | 'mensagens' | 'perguntas' | 'documentos' | 'classificacao' | 'faq' | 'followup' | 'publico' | 'json';
@@ -106,6 +106,43 @@ function Num({ label, value, onChange, hint }: {
       <input type="number" value={value ?? ''} onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))} />
       {hint && <small>{hint}</small>}
     </label>
+  );
+}
+
+/** Sequência de follow-up (até 3 mensagens com intervalo). Vazia = usa a padrão do agente. */
+function FollowupSteps({ steps, onChange, emptyHint }: {
+  steps: FollowUpStep[] | null | undefined; onChange: (v: FollowUpStep[] | null) => void; emptyHint?: string;
+}) {
+  const list = steps ?? [];
+  const set = (next: FollowUpStep[]) => onChange(next.length ? next.map((x, j) => ({ ...x, step: j + 1 })) : null);
+  return (
+    <div className="fu-steps">
+      {!list.length && emptyHint && <small className="muted">{emptyHint}</small>}
+      {list.map((s, i) => {
+        const upd = (patch: Partial<FollowUpStep>) => set(list.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+        return (
+          <div key={i} className="fu-step">
+            <div className="fu-step-head">
+              <strong>{i + 1}ª mensagem</strong>
+              <label className="f f-num fu-delay">
+                <span>{i === 0 ? 'depois de (min) sem resposta' : 'depois da anterior (min)'}</span>
+                <input type="number" min={0} value={s.delay_minutes} onChange={(e) => upd({ delay_minutes: Math.max(0, Number(e.target.value) || 0) })} />
+              </label>
+              <label className="f f-check">
+                <input type="checkbox" checked={s.is_active} onChange={(e) => upd({ is_active: e.target.checked })} /> ativa
+              </label>
+              <button className="icon-btn" aria-label="Remover mensagem" onClick={() => set(list.filter((_, j) => j !== i))}>×</button>
+            </div>
+            <textarea rows={2} value={s.message} placeholder="Ex: Oi, {nome}! Conseguiu ver a data de saída? 😊" onChange={(e) => upd({ message: e.target.value })} />
+          </div>
+        );
+      })}
+      {list.length < 3 && (
+        <button className="btn small add" onClick={() => set([...list, { step: list.length + 1, delay_minutes: [15, 180, 1440][list.length] ?? 60, message: '', is_active: true }])}>
+          + Mensagem de follow-up
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -474,6 +511,14 @@ export default function AgentEditor({ agentKey, onSaved }: { agentKey: string; o
                           onChange={(v) => upd({ insist: v })}
                           hint="Depois disso a IA segue e o item vai como pendência para a equipe. Vazio = 2."
                         />
+                        <details className="fu-box" open={!!f.followup?.length}>
+                          <summary>Follow-up se ela parar nesta pergunta {f.followup?.length ? `(${f.followup.length})` : '(usa a padrão)'}</summary>
+                          <FollowupSteps
+                            steps={f.followup}
+                            onChange={(v) => upd({ followup: v })}
+                            emptyHint="Sem mensagens aqui: vale a sequência padrão da aba Follow-up. Use {nome} para o primeiro nome."
+                          />
+                        </details>
                       </>
                     );
                   })()}
@@ -551,6 +596,14 @@ export default function AgentEditor({ agentKey, onSaved }: { agentKey: string; o
                         hint="Depois disso vai como pendência para a equipe. Vazio = padrão."
                       />
                     </div>
+                    <details className="fu-box" open={!!d.followup?.length}>
+                      <summary>Follow-up se ela parar neste documento {d.followup?.length ? `(${d.followup.length})` : '(usa a padrão)'}</summary>
+                      <FollowupSteps
+                        steps={d.followup}
+                        onChange={(v) => upd({ followup: v })}
+                        emptyHint="Sem mensagens aqui: vale a sequência padrão da aba Follow-up."
+                      />
+                    </details>
                     <div className="f">
                       <span>Comprova quais perguntas</span>
                       <div className="chips">
@@ -657,30 +710,28 @@ export default function AgentEditor({ agentKey, onSaved }: { agentKey: string; o
           {section === 'followup' && (
             <>
               <h2>Follow-up por inatividade</h2>
-              <p className="muted">Ainda não roda no simulador (Fase 2: sweep de follow-up). Fica salvo no kit.</p>
-              {(a.followup_steps ?? []).map((s, i) => {
-                const steps = a.followup_steps ?? [];
-                const upd = (patch: Partial<typeof s>) => { const list = [...steps]; list[i] = { ...s, ...patch }; setAgent({ followup_steps: list }); };
-                return (
-                  <Card key={i} title={`Passo ${i + 1}`} onRemove={() => setAgent({ followup_steps: steps.filter((_, j) => j !== i).map((x, j) => ({ ...x, step: j + 1 })) })}>
-                    <div className="grid3">
-                      <Num label="Esperar (min)" value={s.delay_minutes} onChange={(v) => upd({ delay_minutes: v ?? 0 })} />
-                      <label className="f f-check">
-                        <input type="checkbox" checked={s.is_active} onChange={(e) => upd({ is_active: e.target.checked })} /> ativo
-                      </label>
-                    </div>
-                    <Area label="Mensagem" rows={2} value={s.message} onChange={(v) => upd({ message: v })} />
-                  </Card>
-                );
-              })}
-              <button
-                className="btn add"
-                onClick={() => {
-                  const steps = a.followup_steps ?? [];
-                  setAgent({ followup_steps: [...steps, { step: steps.length + 1, delay_minutes: 60, message: '', is_active: true }] });
-                }}
-              >+ Adicionar passo</button>
-              <Num label="Espera final antes de marcar perdido (min)" value={a.followup_final_wait_minutes} onChange={(v) => setAgent({ followup_final_wait_minutes: v })} />
+              <p className="muted">
+                Quando a lead para de responder, a IA manda uma sequência de até 3 mensagens, cada uma depois de um intervalo
+                (o 1º conta da última mensagem da IA; os outros, da mensagem anterior). A sequência depende de ONDE ela parou:
+                confirmação do formulário, uma pergunta ou um documento do roteiro (configure em cada pergunta/documento).
+                Onde não houver sequência própria, vale a padrão abaixo. Se ela responder, a sequência zera.
+                Use <code>{'{nome}'}</code> para o primeiro nome.
+              </p>
+              <h3>Sequência padrão</h3>
+              <FollowupSteps steps={a.followup_steps} onChange={(v) => setAgent({ followup_steps: v ?? [] })} />
+              <h3>Lead de formulário parado na confirmação dos dados</h3>
+              <p className="muted">A IA mandou a recepção e pediu para confirmar os dados do formulário, e ela não respondeu.</p>
+              <FollowupSteps
+                steps={a.followup_confirmation}
+                onChange={(v) => setAgent({ followup_confirmation: v })}
+                emptyHint="Sem mensagens aqui: vale a sequência padrão."
+              />
+              <Num
+                label="Espera final depois da última mensagem (min)"
+                value={a.followup_final_wait_minutes}
+                onChange={(v) => setAgent({ followup_final_wait_minutes: v })}
+                hint="Sem resposta depois disso: marco &quot;Lead parou de responder&quot; no CRM (configure a etapa na aba CRM). Vazio = não marca."
+              />
             </>
           )}
 

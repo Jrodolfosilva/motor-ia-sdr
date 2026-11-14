@@ -234,6 +234,8 @@ export default function Simulator({ agentKey }: { agentKey: string }) {
 
         {crmCfg && <KanbanCard cfg={crmCfg} crm={session?.crm} />}
 
+        {session && <FollowupCard session={session} onError={setError} />}
+
         <section className="card">
           <div className="card-head">
             <div>
@@ -407,6 +409,50 @@ function PendBadge({ p, item }: { p: { status: PendingStatus; count: number }; i
     <span className={`badge ${b.tone}`} title={released ? 'Não trava mais o roteiro: vai como pendência para a equipe' : `${p.count}x`}>
       {b.text}{p.count > 1 ? ` · ${p.count}x` : ''}{released ? ' · liberado' : ''}
     </span>
+  );
+}
+
+/** Próximo follow-up por inatividade + "pular espera" para testar sem aguardar os minutos. */
+function FollowupCard({ session, onError }: { session: Session; onError: (msg: string) => void }) {
+  const next = session.followupNext;
+  const [busy, setBusy] = useState(false);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!next) return;
+    const t = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [next?.at]);
+  if (!next && !session.state.followupDone) return null;
+  const left = next ? Math.max(0, next.at - Date.now()) : 0;
+  const fmt = (ms: number) => {
+    const s = Math.round(ms / 1000);
+    if (s < 60) return `${s}s`;
+    if (s < 3600) return `${Math.round(s / 60)} min`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h${String(Math.round((s % 3600) / 60)).padStart(2, '0')}`;
+    return `${Math.round(s / 86400)} dia(s)`;
+  };
+  const skip = async () => {
+    setBusy(true);
+    try { await api.followupNow(session.id); } catch (e) { onError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  };
+  return (
+    <section className="card">
+      <div className="card-head">
+        <div>
+          <h2>Follow-up</h2>
+          <p>Lead sem responder: sequência da etapa em que ela parou.</p>
+        </div>
+      </div>
+      {next ? (
+        <div className="fu-next">
+          <span className="badge neutral">{next.label}</span>
+          <span>{next.step ? `${next.step}ª de ${next.total} mensagens` : 'espera final (marca "parou de responder")'} em <strong>{fmt(left)}</strong></span>
+          <button className="btn small" onClick={skip} disabled={busy}>{busy ? 'Enviando…' : 'Pular espera'}</button>
+        </div>
+      ) : (
+        <p className="muted">Sequência esgotada sem resposta{session.state.followupStage ? ` (parou em ${session.state.followupStage})` : ''}.</p>
+      )}
+    </section>
   );
 }
 

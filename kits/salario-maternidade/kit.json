@@ -150,7 +150,27 @@
         "question": "Você está desempregada hoje?",
         "confirm_question": "Pelo seu cadastro, hoje você está {valor}, certo?",
         "why": "Isso define quem pede o benefício: quem está desempregada pede pelo INSS (e é aí que a gente entra); quem está de carteira assinada recebe pela empresa.",
-        "help": "É só dizer se hoje você está trabalhando de carteira assinada ou não. Se faz bico, é autônoma ou MEI, pode falar também."
+        "help": "É só dizer se hoje você está trabalhando de carteira assinada ou não. Se faz bico, é autônoma ou MEI, pode falar também.",
+        "followup": [
+          {
+            "step": 1,
+            "delay_minutes": 15,
+            "message": "Oi, {nome}! Ficou alguma dúvida? Me conta: hoje você está desempregada? 😊",
+            "is_active": true
+          },
+          {
+            "step": 2,
+            "delay_minutes": 180,
+            "message": "Passando aqui de novo 💛 Pra ver se você tem direito ao salário-maternidade, só preciso saber se hoje você está desempregada.",
+            "is_active": true
+          },
+          {
+            "step": 3,
+            "delay_minutes": 1440,
+            "message": "Oi! Se ainda tiver interesse no salário-maternidade, é só me responder aqui que eu continuo a sua análise 🙏🏼",
+            "is_active": true
+          }
+        ]
       },
       {
         "key": "data_saida_ctps",
@@ -158,7 +178,27 @@
         "question": "Há quanto tempo você saiu do seu último emprego de carteira assinada?",
         "confirm_question": "E você saiu do último emprego {valor}, isso?",
         "why": "O direito de quem está desempregada tem prazo, contado da saída do último emprego (normalmente até 12 meses). É essa data que mostra se ainda dá tempo de pedir.",
-        "help": "Não precisa ser o dia exato: o mês e o ano já servem (ou \"uns 5 meses\"). Pra conferir: no app Carteira de Trabalho Digital (gov.br), em Contratos, aparece a data de saída; na carteira física, na última página de contrato; ou no termo de rescisão / extrato do FGTS. Se preferir, ela pode mandar um print da tela de contratos que a gente vê a data."
+        "help": "Não precisa ser o dia exato: o mês e o ano já servem (ou \"uns 5 meses\"). Pra conferir: no app Carteira de Trabalho Digital (gov.br), em Contratos, aparece a data de saída; na carteira física, na última página de contrato; ou no termo de rescisão / extrato do FGTS. Se preferir, ela pode mandar um print da tela de contratos que a gente vê a data.",
+        "followup": [
+          {
+            "step": 1,
+            "delay_minutes": 15,
+            "message": "{nome}, conseguiu lembrar quando saiu do último emprego? Não precisa ser o dia exato, o mês e o ano já ajudam 😊",
+            "is_active": true
+          },
+          {
+            "step": 2,
+            "delay_minutes": 180,
+            "message": "Uma dica: no app Carteira de Trabalho Digital, em Contratos, aparece a data de saída certinha. Se preferir, me manda um print de lá 💛",
+            "is_active": true
+          },
+          {
+            "step": 3,
+            "delay_minutes": 1440,
+            "message": "Oi, {nome}! Essa data é importante porque o direito tem prazo 🙏🏼 Me responde aqui quando puder que eu sigo com a sua análise.",
+            "is_active": true
+          }
+        ]
       },
       {
         "key": "data_parto",
@@ -166,7 +206,27 @@
         "question": "Seu bebê já nasceu? Se sim, quando? Se ainda não, qual a previsão do parto?",
         "confirm_question": "Sobre o bebê: {valor}, confere?",
         "why": "A data do parto (ou a previsão) é o que define a partir de quando o benefício conta e o prazo pra pedir.",
-        "help": "Se não lembra a previsão exata, o mês já serve. Ela está no cartão da gestante ou no último ultrassom. Se o bebê já nasceu, a data está na certidão de nascimento."
+        "help": "Se não lembra a previsão exata, o mês já serve. Ela está no cartão da gestante ou no último ultrassom. Se o bebê já nasceu, a data está na certidão de nascimento.",
+        "followup": [
+          {
+            "step": 1,
+            "delay_minutes": 15,
+            "message": "{nome}, me conta: o bebê já nasceu ou ainda está na barriga? 🥰",
+            "is_active": true
+          },
+          {
+            "step": 2,
+            "delay_minutes": 180,
+            "message": "Passando aqui 💛 Só falta a data do parto (ou a previsão) pra eu adiantar sua análise. O mês já serve!",
+            "is_active": true
+          },
+          {
+            "step": 3,
+            "delay_minutes": 1440,
+            "message": "Oi, {nome}! Não quero que você perca o prazo do seu benefício 🙏🏼 Me responde aqui quando puder.",
+            "is_active": true
+          }
+        ]
       }
     ],
     "required_documents": [
@@ -188,7 +248,27 @@
           "situacao_trabalho"
         ],
         "condition": "já trabalhou com carteira assinada (se nunca trabalhou registrada, não se aplica)",
-        "why": "É pela carteira que a gente comprova a data de saída e o tempo de registro, que decidem o direito ao benefício."
+        "why": "É pela carteira que a gente comprova a data de saída e o tempo de registro, que decidem o direito ao benefício.",
+        "followup": [
+          {
+            "step": 1,
+            "delay_minutes": 15,
+            "message": "{nome}, conseguiu tirar o print da sua carteira de trabalho? Pode ser a tela de Contratos do app 😊",
+            "is_active": true
+          },
+          {
+            "step": 2,
+            "delay_minutes": 180,
+            "message": "Se tiver dificuldade com o app, uma foto da carteira física também serve 💛",
+            "is_active": true
+          },
+          {
+            "step": 3,
+            "delay_minutes": 1440,
+            "message": "Oi, {nome}! Ainda dá tempo de seguir com o seu pedido 🙏🏼 Me manda o print da carteira quando puder.",
+            "is_active": true
+          }
+        ]
       },
       {
         "key": "comprovante_gestacao",
@@ -208,7 +288,27 @@
         "validates": [
           "data_parto"
         ],
-        "why": "O INSS exige comprovar a gestação (ou o nascimento) pra liberar o salário-maternidade."
+        "why": "O INSS exige comprovar a gestação (ou o nascimento) pra liberar o salário-maternidade.",
+        "followup": [
+          {
+            "step": 1,
+            "delay_minutes": 15,
+            "message": "{nome}, conseguiu separar o ultrassom ou o cartão da gestante? Pode ser foto mesmo 😊",
+            "is_active": true
+          },
+          {
+            "step": 2,
+            "delay_minutes": 180,
+            "message": "Se não tiver o ultrassom à mão, o cartão da gestante ou até o teste de farmácia servem 💛",
+            "is_active": true
+          },
+          {
+            "step": 3,
+            "delay_minutes": 1440,
+            "message": "Oi, {nome}! Falta só esse comprovante pra sua análise ficar completa 🙏🏼 Me manda quando puder.",
+            "is_active": true
+          }
+        ]
       }
     ],
     "classification_labels": [
@@ -522,6 +622,26 @@
         "Já trabalhou registrada 1 ano antes?": "Sim, já trabalhei registrada 1 ano antes.",
         "E-mail": "silvakelly74463@gmail.com"
       }
-    }
+    },
+    "followup_confirmation": [
+      {
+        "step": 1,
+        "delay_minutes": 15,
+        "message": "Oi, {nome}! Conseguiu ver os dados que te mandei? É só me confirmar pra gente seguir com a sua análise 💛",
+        "is_active": true
+      },
+      {
+        "step": 2,
+        "delay_minutes": 180,
+        "message": "{nome}, passando pra lembrar 😊 Falta só você confirmar seus dados pra eu adiantar a análise do seu salário-maternidade.",
+        "is_active": true
+      },
+      {
+        "step": 3,
+        "delay_minutes": 1440,
+        "message": "Oi, {nome}! Não quero que você perca o prazo do seu benefício 🙏🏼 Me responde aqui quando puder que eu sigo com você.",
+        "is_active": true
+      }
+    ]
   }
 }

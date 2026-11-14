@@ -563,3 +563,18 @@ a.wa-file { color: inherit; text-decoration: none; }
 .switch input:focus-visible + .switch-track { outline: 2px solid var(--brand); outline-offset: 2px; }
 .switch input:disabled + .switch-track { opacity: .5; }
 .switch-label { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; flex-wrap: wrap; }
+
+/* Follow-up por etapa (editor) */
+.fu-box { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin: 6px 0 14px; }
+.fu-box > summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.fu-box[open] > summary { margin-bottom: 10px; }
+.fu-steps { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.fu-step { display: flex; flex-direction: column; gap: 6px; }
+.fu-step textarea { width: 100%; }
+.fu-step-head { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.fu-step-head strong { font-size: 13px; padding-bottom: 8px; }
+.fu-step-head .f { margin: 0; }
+.fu-step-head .f-check { padding-top: 0; padding-bottom: 8px; }
+.fu-step-head .icon-btn { width: 30px; height: 30px; margin-left: auto; }
+.fu-delay input { width: 110px; }
+.fu-next { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }

@@ -86,7 +86,7 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
     state = await store.loadState();
   }
   const turnsCount = state.turnsCount + 1;
-  await store.saveState({ status: 'active', turnsCount, lastInboundAt: ctx.now ?? new Date(), followupStepSent: 0 });
+  await store.saveState({ status: 'active', turnsCount, lastInboundAt: ctx.now ?? new Date(), followupStepSent: 0, followupDone: false });
 
   // 3. limite de turnos
   if (turnsCount > agent.max_turns) return handOff(ctx, 'max_turns_exceeded');

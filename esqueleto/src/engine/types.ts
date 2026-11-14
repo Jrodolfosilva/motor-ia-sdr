@@ -16,6 +16,8 @@ export interface RequiredField {
   help?: string | null;
   /** Quantas vezes a IA reforça e pede de novo antes de deixar para a equipe. Vazio = padrão (2). */
   insist?: number | null;
+  /** Follow-up se a lead parar de responder nesta pergunta. Vazio = sequência padrão do agente. */
+  followup?: FollowUpStep[] | null;
 }
 
 export type DocumentFileType = 'image' | 'pdf';
@@ -41,6 +43,8 @@ export interface RequiredDocument {
   why?: string | null;
   /** Quantas vezes a IA reforça e pede de novo antes de deixar para a equipe. Vazio = padrão (2). */
   insist?: number | null;
+  /** Follow-up se a lead parar de responder neste documento. Vazio = sequência padrão do agente. */
+  followup?: FollowUpStep[] | null;
 }
 
 export type RuleOperator =
@@ -69,6 +73,10 @@ export interface ClassificationLabel {
   chat_label_id?: number | null;
 }
 
+/**
+ * Passo de follow-up: `delay_minutes` conta a partir da última mensagem da conversa
+ * (a resposta da IA ou o follow-up anterior). `{nome}` = primeiro nome da lead.
+ */
 export interface FollowUpStep {
   step: number;
   delay_minutes: number;
@@ -215,7 +223,10 @@ export interface Agent {
   handoff_keywords: string[];
   max_turns: number;
   debounce_seconds: number;
+  /** Sequência padrão (etapa sem sequência própria). */
   followup_steps: FollowUpStep[];
+  /** Lead de formulário que parou na confirmação inicial dos dados. Vazio = sequência padrão. */
+  followup_confirmation?: FollowUpStep[] | null;
   followup_final_wait_minutes?: number | null;
   followup_lost_reason_id?: number | null;
   log_executions: boolean;
@@ -301,6 +312,10 @@ export interface ConversationState {
   crmFired?: string[];
   /** Etapa do kanban onde o motor deixou o card por último. */
   crmStage?: string | null;
+  /** Etapa em que a lead parou (ex: "confirmacao", "pergunta:data_parto") - do último follow-up enviado. */
+  followupStage?: string | null;
+  /** Sequência de follow-up esgotada (passos + espera final) sem resposta. */
+  followupDone?: boolean;
 }
 
 export interface ChatMessage {

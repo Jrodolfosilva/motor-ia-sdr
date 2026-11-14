@@ -30,6 +30,8 @@ export interface Session {
   crm: { stageId: string | null; labels: string[]; history: { at: string; stageId?: string; add?: string[]; remove?: string[]; note?: string }[] };
   /** Áudios transcritos (custo por minuto). */
   audioUsage: { model: string; seconds: number; messageId: string }[];
+  /** Próximo follow-up por inatividade (hora em ms). `step` null = fechamento da sequência (espera final). */
+  followupNext?: { at: number; stage: string; label: string; step: number | null; total: number } | null;
 }
 
 const sessions = new Map<string, Session>();

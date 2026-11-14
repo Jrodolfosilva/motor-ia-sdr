@@ -52,6 +52,9 @@ export interface SessionState {
   formKeys: string[] | null;
   confirmedKeys: string[];
   pending?: Record<string, PendingItem>;
+  /** Etapa do último follow-up e se a sequência esgotou sem resposta. */
+  followupStage?: string | null;
+  followupDone?: boolean;
   [k: string]: unknown;
 }
 
@@ -67,6 +70,8 @@ export interface Session {
   cost?: SessionCost;
   /** Card no kanban (simulado). */
   crm?: { stageId: string | null; labels: string[]; history: { at: string; stageId?: string; add?: string[]; remove?: string[]; note?: string }[] };
+  /** Próximo follow-up por inatividade. `step` null = fechamento (espera final). */
+  followupNext?: { at: number; stage: string; label: string; step: number | null; total: number } | null;
 }
 
 export interface CostItem {
@@ -170,6 +175,8 @@ export interface RequiredField {
   help?: string | null;
   /** Vezes que a IA reforça e pede de novo antes de deixar para a equipe (vazio = 2). */
   insist?: number | null;
+  /** Follow-up se a lead parar nesta pergunta (vazio = sequência padrão). */
+  followup?: FollowUpStep[] | null;
 }
 
 export type DocumentFileType = 'image' | 'pdf';
@@ -186,6 +193,7 @@ export interface RequiredDocument {
   condition?: string | null;
   why?: string | null;
   insist?: number | null;
+  followup?: FollowUpStep[] | null;
 }
 
 export interface FollowUpStep { step: number; delay_minutes: number; message: string; is_active: boolean }
@@ -225,6 +233,7 @@ export interface KitFile {
     required_documents?: RequiredDocument[];
     classification_labels: ClassificationLabel[];
     followup_steps?: FollowUpStep[];
+    followup_confirmation?: FollowUpStep[] | null;
     followup_final_wait_minutes?: number | null;
     bubble_delay?: BubbleDelay | null;
     reception?: Reception | null;
@@ -326,6 +335,8 @@ export const api = {
   },
   /** Lead de formulário: a IA abre a conversa sem esperar mensagem. */
   start: (id: string) => req<Session>(`/api/sessions/${id}/start`, {}),
+  /** Teste: envia já o próximo follow-up (pula a espera). */
+  followupNow: (id: string) => req<Session>(`/api/sessions/${id}/followup`, {}),
   reset: (id: string, custom_fields: Record<string, unknown> = {}) =>
     req<Session>(`/api/sessions/${id}/reset`, { custom_fields }),
   /** Atualizações ao vivo da sessão (balões, "digitando…", estado). */

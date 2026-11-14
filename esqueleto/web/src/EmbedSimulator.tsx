@@ -178,6 +178,12 @@ export default function EmbedSimulator({ options }: { options: EmbedOptions }) {
               api.sendAudio(session.id, audio).catch(fail);
             }}
           />
+          {session?.followupNext?.step && (
+            <div className="embed-foot fu-next">
+              <span>Se o cliente sumir agora: follow-up {session.followupNext.step}/{session.followupNext.total} ({session.followupNext.label})</span>
+              <button className="btn small" onClick={() => api.followupNow(session.id).catch(fail)}>Simular que ele sumiu</button>
+            </div>
+          )}
           <div className="embed-foot">Simulação de atendimento · as mensagens não vão para o WhatsApp</div>
         </div>
 

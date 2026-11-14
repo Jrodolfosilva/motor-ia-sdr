@@ -9,6 +9,8 @@ const ENV_FILE = join(__dirname, '../.env');
 if (existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
 import { modelFor, type Agent, type MediaAnalyzerPort } from './engine/types';
 import { intake, runTurn } from './engine/runTurn';
+import { nextFollowup, runFollowup } from './engine/followup';
+import { PlaygroundSessionModel } from './db/models/PlaygroundSession';
 import { openAiCompatible } from './providers/openaiCompatible';
 import { appendUser, buildSimulatorContext, createSession, type Session, type SimMessage } from './adapters/simulator';
 import { extForMime, transcribe, TRANSCRIBE_MODEL } from './providers/transcribe';
@@ -42,7 +44,7 @@ function kitToAgent(raw: Record<string, any>, apiKey: string): Agent {
     classification_labels: a.classification_labels ?? [],
     handoff_message: a.handoff_message, disqualify_message: a.disqualify_message, fallback_message: a.fallback_message,
     handoff_keywords: a.handoff_keywords ?? [], max_turns: a.max_turns ?? 20, debounce_seconds: a.debounce_seconds ?? 8,
-    followup_steps: a.followup_steps ?? [], followup_final_wait_minutes: a.followup_final_wait_minutes,
+    followup_steps: a.followup_steps ?? [], followup_confirmation: a.followup_confirmation ?? null, followup_final_wait_minutes: a.followup_final_wait_minutes,
     log_executions: true,
     bubble_delay: a.bubble_delay ?? null,
   };
@@ -389,9 +391,86 @@ function scheduleTurn(s: Session, delayMs = SIM_DEBOUNCE_MS) {
     } finally {
       t.running = false;
       s.typing = false;
+      await planFollowup(s).catch((e) => console.error('follow-up: falha ao agendar', e));
       publish(s);
     }
   }, delayMs);
+}
+
+// ---------- Follow-up por inatividade ----------
+// Depois de cada resposta da IA (e de cada follow-up), a sessão guarda o próximo follow-up (`followupNext`).
+// Uma varredura periódica busca no banco as sessões vencidas e envia. Sequência por etapa: engine/followup.ts.
+// FOLLOWUP_MINUTE_MS (só local) encurta o "minuto" configurado (ex: 1000 = cada minuto vira 1 segundo).
+const FOLLOWUP_MINUTE_MS = Number(process.env.FOLLOWUP_MINUTE_MS ?? 60_000);
+const FOLLOWUP_SWEEP_MS = FOLLOWUP_MINUTE_MS < 60_000 ? 2_000 : 30_000;
+
+/** Hora da última mensagem se foi a IA quem falou por último (a lead está devendo resposta). */
+function silentSince(s: Session): number | null {
+  const last = [...s.messages].reverse().find((m) => m.role === 'user' || m.role === 'assistant');
+  return last?.role === 'assistant' ? Date.parse(last.createdAt) : null;
+}
+
+/** Recalcula o próximo follow-up da sessão (null = nenhum). Não grava: quem chama publica. */
+async function planFollowup(s: Session): Promise<void> {
+  const since = silentSince(s);
+  const { agent } = await agentFor(s.agentId);
+  const due = since == null ? null : nextFollowup(agent, s.customFields, s.state, since, FOLLOWUP_MINUTE_MS);
+  s.followupNext = due
+    ? {
+      at: due.dueAt, stage: due.plan.stage, label: due.plan.label,
+      step: due.kind === 'step' ? due.index + 1 : null, total: due.plan.steps.length,
+    }
+    : null;
+}
+
+/** Envia o follow-up vencido (ou o próximo, com `force`). true = enviou/fechou algo. */
+async function fireFollowup(s: Session, force = false): Promise<boolean> {
+  const t = turns.get(s.id) ?? { running: false, again: false, timer: null };
+  turns.set(s.id, t);
+  if (t.running || t.timer) return false; // a lead acabou de escrever: o turno cuida
+  const since = silentSince(s);
+  if (since == null) return false;
+  const { agent } = await agentFor(s.agentId);
+  const due = nextFollowup(agent, s.customFields, s.state, since, FOLLOWUP_MINUTE_MS);
+  if (!due || (!force && due.dueAt > Date.now())) return false;
+  t.running = true;
+  try {
+    await runFollowup(await contextFor(s), due);
+  } finally {
+    t.running = false;
+    await planFollowup(s).catch(() => { s.followupNext = null; });
+    publish(s);
+  }
+  return true;
+}
+
+let sweeping = false;
+async function sweepFollowups(): Promise<void> {
+  if (sweeping) return;
+  sweeping = true;
+  try {
+    const docs = await PlaygroundSessionModel.find(
+      { 'data.followupNext.at': { $lte: Date.now() }, 'data.state.status': 'active' },
+      { _id: 1 },
+    ).limit(200).lean();
+    for (const d of docs) {
+      const s = await sessionRepo.get(String(d._id));
+      if (!s) continue;
+      try {
+        if (!(await fireFollowup(s))) {
+          // não venceu de verdade (ex: lead respondeu): recalcula para não voltar na varredura
+          await planFollowup(s);
+          publish(s);
+        }
+      } catch (e) {
+        console.error(`follow-up falhou (${s.id})`, e);
+        s.followupNext = null;
+        publish(s);
+      }
+    }
+  } finally {
+    sweeping = false;
+  }
 }
 
 /** Sessão da URL, já checando acesso. Responde 404/403 e devolve null quando não pode. */
@@ -452,6 +531,18 @@ app.post('/api/sessions/:id/reset', async (req, res) => {
   s.publicToken = old.publicToken ?? null;
   await sessionRepo.add(s);
   res.json(view(s, isAdmin(req)));
+});
+
+// Testes: "pular espera" envia já o próximo follow-up da sequência (como se a lead tivesse sumido).
+app.post('/api/sessions/:id/followup', async (req, res) => {
+  const s = await sessionFor(req, res);
+  if (!s) return;
+  try {
+    const sent = await fireFollowup(s, true);
+    res.status(sent ? 202 : 409).json(sent ? view(s, isAdmin(req)) : { error: 'Nenhum follow-up pendente agora (a lead precisa estar sem responder a IA).' });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
 });
 
 // Lead de formulário: o botão "Iniciar" do simulador faz a IA abrir a conversa (sem mensagem do lead).
@@ -563,6 +654,7 @@ async function main() {
   await connectAll();
   await seedKitIfEmpty(KIT_SEED);
   setInterval(() => sessionRepo.evictIdle((id) => !!turns.get(id)?.running || !!subscribers.get(id)?.size), 5 * 60 * 1000).unref();
+  setInterval(() => { sweepFollowups().catch((e) => console.error('varredura de follow-up', e)); }, FOLLOWUP_SWEEP_MS).unref();
 
   const port = Number(process.env.PORT ?? 3000);
   const server = app.listen(port, () => console.log(`Simulador em http://localhost:${port}`));
