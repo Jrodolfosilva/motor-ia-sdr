@@ -1,6 +1,25 @@
-import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, KeyboardEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import { FileText, Image as ImageIcon, Mic, Paperclip, Send, Trash2, X } from 'lucide-react';
 import { mediaUrl, type MediaAnalysis, type RequiredDocument, type SimMessage } from './api';
+
+/** Formatação do WhatsApp: *negrito*, _itálico_, ~riscado~. */
+function waFormat(text: string): ReactNode[] {
+  const out: ReactNode[] = [];
+  const re = /([*_~])(?=\S)([^*_~\n]*?\S)\1/g;
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    const i = m.index ?? 0;
+    const before = i === 0 ? '' : text[i - 1];
+    const after = text[i + m[0].length] ?? '';
+    if (/\w/.test(before) || /\w/.test(after)) continue; // "a*b*c" não formata (igual ao WhatsApp)
+    if (i > last) out.push(text.slice(last, i));
+    const inner = m[2];
+    out.push(m[1] === '*' ? <strong key={i}>{inner}</strong> : m[1] === '_' ? <em key={i}>{inner}</em> : <s key={i}>{inner}</s>);
+    last = i + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
 
 interface Props {
   contactName: string;
@@ -253,7 +272,7 @@ export default function Phone({ contactName, messages, typing, closed, documents
                     <details className="wa-transcript"><summary>o que diz</summary>{m.transcript}</details>
                   )}
 
-                  {m.body && <span className="wa-text">{m.body}</span>}
+                  {m.body && <span className="wa-text">{waFormat(m.body)}</span>}
                   <span className="wa-meta">
                     {hhmm(m.createdAt)}
                     {mine && <span className={`wa-ticks${m.id.startsWith('tmp-') ? '' : ' read'}`}>✓✓</span>}
