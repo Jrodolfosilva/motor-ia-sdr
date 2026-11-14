@@ -46,8 +46,8 @@ const PENDING_TOOL: ToolDef = {
       campo: { type: 'string', description: 'Key exata da pergunta ou do documento.' },
       situacao: {
         type: 'string',
-        enum: ['depois', 'nao_tem', 'recusou'],
-        description: '"depois" = vai mandar/responder mais tarde, não consegue AGORA (ex: "tô no trabalho", "mando à noite", "a carteira tá na casa da minha mãe"). "nao_tem" = não tem ou não consegue de jeito nenhum (ex: "não tenho gov.br", "perdi a carteira", "não fiz ultrassom"). "recusou" = não quer informar (ex: "prefiro não falar", "pra que vocês querem isso?" seguido de negativa).',
+        enum: ['depois', 'nao_sabe', 'vaga', 'nao_tem', 'recusou'],
+        description: '"depois" = vai mandar/responder mais tarde, não consegue AGORA (ex: "tô no trabalho", "mando à noite", "a carteira tá na casa da minha mãe"). "nao_sabe" = não lembra ou não sabe a resposta (ex: "não lembro", "não sei a data", "não faço ideia"). "vaga" = respondeu ao item, mas a resposta não serve: vaga, incompleta ou estranha, sem a informação pedida (ex: "faz tempo", "acho que foi antes", "sei lá, uns anos", mandou um arquivo que não é o documento pedido). "nao_tem" = não tem ou não consegue de jeito nenhum (ex: "não tenho gov.br", "perdi a carteira", "não fiz ultrassom"). "recusou" = não quer informar (ex: "prefiro não falar", "pra que vocês querem isso?" seguido de negativa).',
       },
       detalhe: { type: 'string', description: 'O motivo com as palavras dela, curto.' },
     },
@@ -104,8 +104,8 @@ export function buildExtractorPrompt(status: RequiredFieldsStatus, now?: Date, l
     parts.push([
       'PENDÊNCIAS: olhe SÓ as mensagens mais recentes do lead (depois da última fala da atendente):',
       latest.map((t) => `> ${t}`).join('\n'),
-      'Se nelas o lead disse que não vai responder/enviar AGORA um item que a atendente pediu, chame marcar_pendencia com a key do item e a situação ("depois", "nao_tem" ou "recusou"). Só marque o que aparece nessas mensagens recentes; não remarque coisa antiga. Se o lead enviou ou respondeu o item, use salvar_dado_lead e não marque pendência.',
-      'NÃO é pendência (não chame nada): mensagem sem sentido ou letras aleatórias ("asdasd", "bla bla bla", "kkkk"), resposta fora do assunto, "não"/"sim" que responde a uma pergunta de sim/não da atendente (ex: "posso te fazer umas perguntas?", "tá bem?"), ou dúvida do lead. Pendência exige o lead dizer claramente, sobre AQUELE item, que vai depois, que não tem ou que não quer informar. Na dúvida, não marque.',
+      'Se nelas o lead NÃO deu uma resposta válida ao item que a atendente pediu, chame marcar_pendencia com a key do item e a situação ("depois", "nao_sabe", "vaga", "nao_tem" ou "recusou"). Só marque o que aparece nessas mensagens recentes; não remarque coisa antiga. Se o lead enviou ou respondeu o item com uma informação que serve (mesmo aproximada, ex: "saí em março do ano passado", "uns 5 meses"), use salvar_dado_lead e NÃO marque pendência.',
+      'NÃO é pendência (não chame nada): mensagem sem sentido ou letras aleatórias ("asdasd", "bla bla bla", "kkkk"), assunto que não tem a ver com o item, "não"/"sim" que responde a uma pergunta de sim/não da atendente (ex: "posso te fazer umas perguntas?", "tá bem?"), ou dúvida do lead. Pendência exige o lead responder SOBRE AQUELE item sem dar a informação (não sabe, vago, não tem, vai depois, não quer). Na dúvida, não marque.',
       pend.length ? `Pendências já registradas:\n${pend.join('\n')}` : '',
     ].filter(Boolean).join('\n'));
   }
@@ -158,7 +158,7 @@ export async function extract(
   for (const call of res.toolCalls) {
     if (call.name === 'marcar_pendencia' && validKeys.has(String(call.arguments.campo))) {
       const st = call.arguments.situacao;
-      if (st === 'depois' || st === 'nao_tem' || st === 'recusou') {
+      if (st === 'depois' || st === 'nao_sabe' || st === 'vaga' || st === 'nao_tem' || st === 'recusou') {
         pending[String(call.arguments.campo)] = { status: st, detail: call.arguments.detalhe ? String(call.arguments.detalhe) : null };
       }
     }

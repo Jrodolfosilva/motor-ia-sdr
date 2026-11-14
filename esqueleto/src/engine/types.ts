@@ -10,6 +10,12 @@ export interface RequiredField {
   question: string;
   /** Como confirmar quando o dado já veio do formulário (Meta/LP). Opcional. */
   confirm_question?: string | null;
+  /** Por que precisamos desse dado. A IA usa para reforçar quando o lead não sabe, recusa ou responde vago. */
+  why?: string | null;
+  /** Como o lead consegue descobrir/responder (onde olhar, o que serve como aproximação). */
+  help?: string | null;
+  /** Quantas vezes a IA reforça e pede de novo antes de deixar para a equipe. Vazio = padrão (2). */
+  insist?: number | null;
 }
 
 export type DocumentFileType = 'image' | 'pdf';
@@ -31,6 +37,10 @@ export interface RequiredDocument {
   validates?: string[];
   /** Quando pedir (texto livre para a IA). Vazio = sempre. Ex: "só se já trabalhou registrada". */
   condition?: string | null;
+  /** Por que precisamos do documento. A IA usa para reforçar quando o lead não tem, recusa ou manda errado. */
+  why?: string | null;
+  /** Quantas vezes a IA reforça e pede de novo antes de deixar para a equipe. Vazio = padrão (2). */
+  insist?: number | null;
 }
 
 export type RuleOperator =
@@ -223,7 +233,12 @@ export interface BubbleDelay {
 }
 
 /** Item do roteiro que o lead não respondeu/enviou, com o motivo. */
-export type PendingStatus = 'depois' | 'nao_tem' | 'recusou';
+/**
+ * Por que o item do roteiro ficou sem resposta válida:
+ * depois = não consegue agora; nao_sabe = não lembra/não sabe; vaga = respondeu algo que não serve
+ * (vago, estranho, sem a informação); nao_tem = não tem de jeito nenhum; recusou = não quer informar.
+ */
+export type PendingStatus = 'depois' | 'nao_sabe' | 'vaga' | 'nao_tem' | 'recusou';
 
 export interface PendingItem {
   status: PendingStatus;

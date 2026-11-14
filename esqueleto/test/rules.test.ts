@@ -89,3 +89,27 @@ describe('isNoiseReply', () => {
     }
   });
 });
+
+describe('pendência com insistência', () => {
+  const fields = [
+    { key: 'data_saida', label: 'Data de saída', question: 'Quando saiu?' },
+    { key: 'parto', label: 'Parto', question: 'Quando nasce?', insist: 0 },
+  ];
+  const st = (pending: Record<string, { status: 'nao_sabe' | 'recusou'; count: number }>) =>
+    new RequiredFieldsStatus(fields, {}, [], { pending });
+
+  it('"não lembro" trava o roteiro até a IA insistir 2x (padrão)', () => {
+    expect(st({ data_saida: { status: 'nao_sabe', count: 1 } }).missingQuestions().map((f) => f.key)).toContain('data_saida');
+    expect(st({ data_saida: { status: 'nao_sabe', count: 2 } }).isPendingResolved('data_saida')).toBe(false);
+    expect(st({ data_saida: { status: 'nao_sabe', count: 3 } }).isPendingResolved('data_saida')).toBe(true);
+  });
+
+  it('recusa: reforça 1x antes de liberar', () => {
+    expect(st({ data_saida: { status: 'recusou', count: 1 } }).isPendingResolved('data_saida')).toBe(false);
+    expect(st({ data_saida: { status: 'recusou', count: 2 } }).isPendingResolved('data_saida')).toBe(true);
+  });
+
+  it('insist do item troca o padrão', () => {
+    expect(st({ parto: { status: 'nao_sabe', count: 1 } }).isPendingResolved('parto')).toBe(true);
+  });
+});

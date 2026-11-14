@@ -148,19 +148,25 @@
         "key": "situacao_trabalho",
         "label": "Situação de trabalho hoje. Salve exatamente um destes: \"desempregada\" ou \"empregada registrada\" (trabalha de carteira assinada hoje, inclusive afastada ou de licença). Se for autônoma/MEI ou rural, salve \"autônoma/MEI\" ou \"rural\"",
         "question": "Você está desempregada hoje?",
-        "confirm_question": "Pelo seu cadastro, hoje você está {valor}, certo?"
+        "confirm_question": "Pelo seu cadastro, hoje você está {valor}, certo?",
+        "why": "Isso define quem pede o benefício: quem está desempregada pede pelo INSS (e é aí que a gente entra); quem está de carteira assinada recebe pela empresa.",
+        "help": "É só dizer se hoje você está trabalhando de carteira assinada ou não. Se faz bico, é autônoma ou MEI, pode falar também."
       },
       {
         "key": "data_saida_ctps",
         "label": "Quando saiu do último emprego com carteira assinada: data (DD/MM/AAAA ou MM/AAAA) ou há quanto tempo (ex: \"há 4 meses\"); \"nunca trabalhou registrada\" se for o caso",
         "question": "Há quanto tempo você saiu do seu último emprego de carteira assinada?",
-        "confirm_question": "E você saiu do último emprego {valor}, isso?"
+        "confirm_question": "E você saiu do último emprego {valor}, isso?",
+        "why": "O direito de quem está desempregada tem prazo, contado da saída do último emprego (normalmente até 12 meses). É essa data que mostra se ainda dá tempo de pedir.",
+        "help": "Não precisa ser o dia exato: o mês e o ano já servem (ou \"uns 5 meses\"). Pra conferir: no app Carteira de Trabalho Digital (gov.br), em Contratos, aparece a data de saída; na carteira física, na última página de contrato; ou no termo de rescisão / extrato do FGTS. Se preferir, ela pode mandar um print da tela de contratos que a gente vê a data."
       },
       {
         "key": "data_parto",
         "label": "Se o bebê já nasceu: data de nascimento. Se não nasceu: \"ainda não nasceu\" + previsão do parto (DD/MM/AAAA ou MM/AAAA). Se a previsão que consta já passou, NÃO confirme com um \"sim\": só registre quando ela disser a data real de nascimento (ou que ainda não nasceu e a nova previsão)",
         "question": "Seu bebê já nasceu? Se sim, quando? Se ainda não, qual a previsão do parto?",
-        "confirm_question": "Sobre o bebê: {valor}, confere?"
+        "confirm_question": "Sobre o bebê: {valor}, confere?",
+        "why": "A data do parto (ou a previsão) é o que define a partir de quando o benefício conta e o prazo pra pedir.",
+        "help": "Se não lembra a previsão exata, o mês já serve. Ela está no cartão da gestante ou no último ultrassom. Se o bebê já nasceu, a data está na certidão de nascimento."
       }
     ],
     "required_documents": [
@@ -181,7 +187,8 @@
           "data_saida_ctps",
           "situacao_trabalho"
         ],
-        "condition": "já trabalhou com carteira assinada (se nunca trabalhou registrada, não se aplica)"
+        "condition": "já trabalhou com carteira assinada (se nunca trabalhou registrada, não se aplica)",
+        "why": "É pela carteira que a gente comprova a data de saída e o tempo de registro, que decidem o direito ao benefício."
       },
       {
         "key": "comprovante_gestacao",
@@ -200,7 +207,8 @@
         "request_message": "E pra comprovar a gestação, pode ser foto do ultrassom, do cartão da gestante ou até do teste de farmácia 😊 Se o bebê já nasceu, a certidão de nascimento.",
         "validates": [
           "data_parto"
-        ]
+        ],
+        "why": "O INSS exige comprovar a gestação (ou o nascimento) pra liberar o salário-maternidade."
       }
     ],
     "classification_labels": [

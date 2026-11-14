@@ -450,6 +450,30 @@ export default function AgentEditor({ agentKey, onSaved }: { agentKey: string; o
                           onChange={(v) => upd({ confirm_question: v || null })}
                           hint="Opcional. Use {valor} para o que veio do form. Ex: A previsão do parto é pra {valor}, confere?"
                         />
+                        <div className="f">
+                          <span>Se a resposta não vier certa</span>
+                          <small className="muted">Não sabe, não lembra, resposta vaga ou estranha, recusa: a IA explica por que precisa, orienta como descobrir e pergunta de novo.</small>
+                        </div>
+                        <Area
+                          label="Por que precisamos"
+                          rows={2}
+                          value={f.why}
+                          onChange={(v) => upd({ why: v || null })}
+                          hint="Ex: o direito tem prazo contado da saída do último emprego, então essa data decide se ainda dá tempo."
+                        />
+                        <Area
+                          label="Como ela consegue responder"
+                          rows={3}
+                          value={f.help}
+                          onChange={(v) => upd({ help: v || null })}
+                          hint="Onde olhar e o que serve como aproximação. Ex: mês e ano já servem; está no app Carteira de Trabalho Digital, em Contratos."
+                        />
+                        <Num
+                          label="Quantas vezes insistir"
+                          value={f.insist}
+                          onChange={(v) => upd({ insist: v })}
+                          hint="Depois disso a IA segue e o item vai como pendência para a equipe. Vazio = 2."
+                        />
                       </>
                     );
                   })()}
@@ -512,6 +536,21 @@ export default function AgentEditor({ agentKey, onSaved }: { agentKey: string; o
                       onChange={(v) => upd({ how_to_get: v || null })}
                       hint="A IA usa quando o lead não sabe onde achar ou não tem em mãos."
                     />
+                    <div className="grid2">
+                      <Area
+                        label="Por que precisamos"
+                        rows={2}
+                        value={d.why}
+                        onChange={(v) => upd({ why: v || null })}
+                        hint="A IA usa para reforçar quando ela não tem, recusa ou manda outro arquivo."
+                      />
+                      <Num
+                        label="Quantas vezes insistir"
+                        value={d.insist}
+                        onChange={(v) => upd({ insist: v })}
+                        hint="Depois disso vai como pendência para a equipe. Vazio = padrão."
+                      />
+                    </div>
                     <div className="f">
                       <span>Comprova quais perguntas</span>
                       <div className="chips">

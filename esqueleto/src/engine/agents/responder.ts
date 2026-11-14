@@ -29,13 +29,32 @@ function mediaTool(items: MediaItem[]): ToolDef {
 
 const FILE_TYPE_LABEL = { image: 'foto/print', pdf: 'PDF' } as const;
 
+const PENDING_TAG = { depois: 'DEPOIS', nao_sabe: 'NÃO SABE', vaga: 'RESPOSTA VAGA', nao_tem: 'NÃO TEM', recusou: 'RECUSOU' } as const;
+
 /** Marcação de pendência do item para o prompt, ou null se não há pendência. */
 function pendingLine(status: RequiredFieldsStatus, key: string): string | null {
   const p = status.pendingFor(key);
   if (!p) return null;
-  const tag = { depois: 'DEPOIS', nao_tem: 'NÃO TEM', recusou: 'RECUSOU' }[p.status];
-  const why = p.detail ? ` (ela disse: "${p.detail}")` : '';
-  return status.isPendingResolved(key) ? `[${tag} - LIBERADO]${why}` : `[${tag}]${why}`;
+  const tag = PENDING_TAG[p.status];
+  const said = p.detail ? ` (ela disse: "${p.detail}")` : '';
+  if (status.isPendingResolved(key)) return `[${tag} - LIBERADO]${said}`;
+  if (p.status === 'depois') return `[${tag}]${said}`;
+  const left = status.insistLeft(key);
+  return `[${tag} - REFORCE E PEÇA DE NOVO${left > 1 ? '' : ', última tentativa'}]${said}`;
+}
+
+/** Orientação para reforçar um item sem resposta válida: por que precisamos + como conseguir. */
+function insisting(status: RequiredFieldsStatus, key: string): boolean {
+  const p = status.pendingFor(key);
+  return !!p && p.status !== 'depois' && !status.isPendingResolved(key);
+}
+
+function insistInfo(status: RequiredFieldsStatus, key: string, why?: string | null, help?: string | null): string {
+  if (!insisting(status, key)) return '';
+  return [
+    why ? `por que precisamos: ${why}` : null,
+    help ? `como ela consegue: ${help}` : null,
+  ].filter(Boolean).map((l) => `\n    ${l}`).join('');
 }
 
 export function buildResponderPrompt(
@@ -111,7 +130,7 @@ ${lines}`);
       const v = status.value(f.key);
       const note = typeof v === 'string' ? elapsedNote(v, now) : '';
       const pend = pendingLine(status, f.key);
-      if (pend) return `- ${pend} "${f.label}"`;
+      if (pend) return `- ${pend} "${f.label}" - pergunta: "${f.question}"${insistInfo(status, f.key, f.why, f.help)}`;
       switch (status.questionState(f)) {
         case 'missing':
           return `- [FALTA] "${f.label}" - pergunte algo como: "${f.question}"`;
@@ -137,7 +156,10 @@ ${lines}`);
         d.accepted.length > 1 ? `outros que também servem: ${d.accepted.join(', ')}` : null,
         d.how_to_get ? `onde conseguir: ${d.how_to_get}` : null,
       ].filter(Boolean).join(' | ');
-      if (pend) return `- ${pend} ${d.label}${alt && status.pendingFor(d.key)?.status === 'nao_tem' && !status.isPendingResolved(d.key) ? `\n    alternativas: ${alt}` : ''}`;
+      if (pend) {
+        const again = insisting(status, d.key);
+        return `- ${pend} ${d.label}${again ? ` - peça algo como: "${d.request_message}"` : ''}${insistInfo(status, d.key, d.why)}${again && alt ? `\n    alternativas: ${alt}` : ''}`;
+      }
       const info = [
         `formato: ${d.file_types.map((t) => FILE_TYPE_LABEL[t]).join(' ou ') || 'foto/print ou PDF'}`,
         d.accepted.length ? `serve: ${d.accepted.join(', ')}` : null,
@@ -154,12 +176,16 @@ ${lines}`);
   if (status.fields.length || status.documents.length) {
     const onlyDeferredLeft = status.missing().length > 0 && status.missing().every((x) => status.pendingFor(x.key)?.status === 'depois');
     parts.push([
-      'QUANDO ELA NÃO RESPONDE OU NÃO TEM O ITEM:',
-      '- Nunca trave a conversa num item. Se ela não pode agora, acolha em 1 frase e siga com o próximo item que falta.',
-      '- [DEPOIS]: combine com leveza ("sem problema, me manda quando puder") e não peça de novo enquanto houver outros itens pra resolver.',
-      '- [NÃO TEM]: ofereça UMA alternativa (outro documento que serve ou onde conseguir). Se não houver alternativa, aceite e siga.',
-      '- [RECUSOU]: não insista. Se ainda não explicou, diga em 1 frase por que ajuda na análise, sem pressão, e siga.',
-      '- [LIBERADO]: não peça mais esse item; a equipe resolve depois.',
+      'QUANDO A RESPOSTA NÃO VEM COMO ESPERADO (não sabe, vaga, estranha, recusa, não tem):',
+      '- NÃO aceite e siga em frente: os itens do roteiro são necessários para o pedido. Item marcado "REFORCE E PEÇA DE NOVO": acolha em 1 frase curta (sem julgar), diga por que precisamos (use "por que precisamos"), oriente como ela consegue a informação (use "como ela consegue" / "alternativas") e peça de novo, de um jeito simples. No máximo 3 frases.',
+      '- Aceite aproximação quando servir (mês/ano, "uns 5 meses", "no começo do ano") e diga isso a ela ("não precisa ser o dia exato").',
+      '- Cada reforço tem que soar diferente do anterior (outra explicação, outro caminho pra descobrir). Nunca repita a mesma frase.',
+      '- [NÃO SABE] / [RESPOSTA VAGA]: ajude a lembrar com referências (mês, época do ano, quanto tempo antes da gravidez) e diga onde olhar.',
+      '- [NÃO TEM]: ofereça a alternativa (outro documento que serve ou onde conseguir).',
+      '- [RECUSOU]: com calma e sem pressão, explique por que é necessário e pergunte de novo.',
+      '- Mensagem sem sentido ou que não responde a pergunta: peça de novo com gentileza, reformulando.',
+      '- [DEPOIS]: combine com leveza ("sem problema, me manda quando puder") e siga com os outros itens; não peça de novo enquanto houver outros itens pra resolver.',
+      '- [LIBERADO]: já insistimos o suficiente. Não peça mais esse item (a equipe resolve depois) e siga com o próximo.',
       onlyDeferredLeft ? '- AGORA só faltam itens [DEPOIS]: lembre UMA vez, com gentileza, do que ficou de mandar, e diga que fica no aguardo.' : null,
     ].filter(Boolean).join('\n'));
   }

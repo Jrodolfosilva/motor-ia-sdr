@@ -1,18 +1,26 @@
 import type { PendingItem, PendingStatus, RequiredDocument, RequiredField } from '../types';
 
 /**
- * Quantas vezes o lead precisa dar a mesma resposta para o item deixar de travar o roteiro.
- * - recusou: 1x. Explica em 1 frase por que importa e segue; não insiste.
- * - nao_tem: 2x. Na 1ª a IA oferece alternativa (outro documento aceito / onde conseguir).
- * - depois: 2x. Na 1ª a IA segue com o resto e lembra uma vez no final.
+ * Quantas vezes a IA reforça e pede de novo antes de o item deixar de travar o roteiro
+ * (o item é liberado para a equipe quando o lead dá a mesma resposta `insist + 1` vezes).
+ * A cada reforço a IA explica por que precisa (`why`) e orienta como descobrir/conseguir (`help`/`how_to_get`).
+ * O item pode trocar o padrão com `insist` (exceto "depois", que só combina de mandar e lembra no fim).
  */
-export const PENDING_RESOLVES_AT: Record<PendingStatus, number> = { recusou: 1, nao_tem: 2, depois: 2 };
+export const DEFAULT_INSIST: Record<PendingStatus, number> = { depois: 1, nao_sabe: 2, vaga: 2, nao_tem: 1, recusou: 1 };
 
 export const PENDING_LABEL: Record<PendingStatus, string> = {
   depois: 'vai enviar/responder depois',
+  nao_sabe: 'não sabe / não lembra',
+  vaga: 'resposta vaga ou fora do esperado',
   nao_tem: 'não tem / não consegue',
   recusou: 'recusou informar',
 };
+
+/** Vezes que a IA insiste no item com esse tipo de resposta. */
+export function insistFor(item: { insist?: number | null } | undefined, status: PendingStatus): number {
+  if (status === 'depois' || item?.insist == null || !Number.isFinite(item.insist)) return DEFAULT_INSIST[status];
+  return Math.max(0, Math.floor(item.insist));
+}
 
 export const filled = (v: unknown) => v !== null && v !== undefined && v !== '';
 
@@ -57,10 +65,20 @@ export class RequiredFieldsStatus {
     return p && !filled(this.known[key]) ? p : null;
   }
 
-  /** Pendência que já não trava o roteiro (lead respondeu o mesmo N vezes). */
+  /** Pendência que já não trava o roteiro (a IA já insistiu o quanto devia). */
   isPendingResolved(key: string): boolean {
     const p = this.pendingFor(key);
-    return !!p && p.count >= PENDING_RESOLVES_AT[p.status];
+    return !!p && p.count > insistFor(this.item(key), p.status);
+  }
+
+  /** Reforços que ainda restam antes de liberar o item (0 = já liberado). */
+  insistLeft(key: string): number {
+    const p = this.pendingFor(key);
+    return p ? Math.max(0, insistFor(this.item(key), p.status) + 1 - p.count) : 0;
+  }
+
+  item(key: string): RequiredField | RequiredDocument | undefined {
+    return this.fields.find((f) => f.key === key) ?? this.documents.find((d) => d.key === key);
   }
 
   /** Itens que ficaram sem resposta/documento mas não travam mais (vão no resumo do handoff). */

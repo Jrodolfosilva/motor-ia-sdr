@@ -40,7 +40,7 @@ export interface CallLog {
   userMessage: string | null;
 }
 
-export type PendingStatus = 'depois' | 'nao_tem' | 'recusou';
+export type PendingStatus = 'depois' | 'nao_sabe' | 'vaga' | 'nao_tem' | 'recusou';
 export interface PendingItem { status: PendingStatus; count: number; detail?: string | null }
 
 export interface SessionState {
@@ -162,7 +162,15 @@ export interface ClassificationLabel {
 }
 
 /** Pergunta do roteiro. */
-export interface RequiredField { key: string; label: string; question: string; confirm_question?: string | null }
+export interface RequiredField {
+  key: string; label: string; question: string; confirm_question?: string | null;
+  /** Por que precisamos (a IA reforça quando a resposta não vem certa). */
+  why?: string | null;
+  /** Como a lead consegue descobrir/responder. */
+  help?: string | null;
+  /** Vezes que a IA reforça e pede de novo antes de deixar para a equipe (vazio = 2). */
+  insist?: number | null;
+}
 
 export type DocumentFileType = 'image' | 'pdf';
 
@@ -176,6 +184,8 @@ export interface RequiredDocument {
   request_message: string;
   validates?: string[];
   condition?: string | null;
+  why?: string | null;
+  insist?: number | null;
 }
 
 export interface FollowUpStep { step: number; delay_minutes: number; message: string; is_active: boolean }

@@ -20,10 +20,15 @@ const filled = (v: unknown) => v !== undefined && v !== null && String(v).trim()
 
 const PENDING_BADGE: Record<PendingStatus, { text: string; tone: string }> = {
   depois: { text: 'vai mandar depois', tone: 'warning' },
+  nao_sabe: { text: 'não sabe', tone: 'warning' },
+  vaga: { text: 'resposta vaga', tone: 'warning' },
   nao_tem: { text: 'não tem', tone: 'danger' },
   recusou: { text: 'recusou', tone: 'danger' },
 };
-const RESOLVES_AT: Record<PendingStatus, number> = { recusou: 1, nao_tem: 2, depois: 2 };
+/** Igual ao motor (rules/requiredFields.ts): a IA reforça `insist` vezes, depois libera para a equipe. */
+const DEFAULT_INSIST: Record<PendingStatus, number> = { depois: 1, nao_sabe: 2, vaga: 2, nao_tem: 1, recusou: 1 };
+const insistFor = (item: { insist?: number | null } | undefined, st: PendingStatus) =>
+  st === 'depois' || item?.insist == null ? DEFAULT_INSIST[st] : Math.max(0, Math.floor(item.insist));
 
 const Q_LABEL: Record<QState, { text: string; tone: string }> = {
   missing: { text: 'falta', tone: 'neutral' },
@@ -313,7 +318,7 @@ export default function Simulator({ agentKey }: { agentKey: string }) {
                   <div>
                     <span className="li-head">
                       <code>{f.key}</code>
-                      {pend ? <PendBadge p={pend} /> : <span className={`badge ${Q_LABEL[s].tone}`}>{Q_LABEL[s].text}</span>}
+                      {pend ? <PendBadge p={pend} item={f} /> : <span className={`badge ${Q_LABEL[s].tone}`}>{Q_LABEL[s].text}</span>}
                     </span>
                     {pend?.detail && <span className="via">"{pend.detail}"</span>}
                     {filled(cf[f.key]) && <span className="value">{String(cf[f.key])}</span>}
@@ -335,7 +340,7 @@ export default function Simulator({ agentKey }: { agentKey: string }) {
                   <div>
                     <span className="li-head">
                       <code>{d.key}</code>
-                      {pend ? <PendBadge p={pend} /> : <span className={`badge ${ok ? 'success' : 'neutral'}`}>{ok ? 'recebido' : 'falta'}</span>}
+                      {pend ? <PendBadge p={pend} item={d} /> : <span className={`badge ${ok ? 'success' : 'neutral'}`}>{ok ? 'recebido' : 'falta'}</span>}
                     </span>
                     {pend?.detail && <span className="via">"{pend.detail}"</span>}
                     <span className="value">{ok ? String(cf[d.key]) : d.label}</span>
@@ -395,9 +400,9 @@ export default function Simulator({ agentKey }: { agentKey: string }) {
   );
 }
 
-function PendBadge({ p }: { p: { status: PendingStatus; count: number } }) {
+function PendBadge({ p, item }: { p: { status: PendingStatus; count: number }; item?: { insist?: number | null } }) {
   const b = PENDING_BADGE[p.status];
-  const released = p.count >= RESOLVES_AT[p.status];
+  const released = p.count > insistFor(item, p.status);
   return (
     <span className={`badge ${b.tone}`} title={released ? 'Não trava mais o roteiro: vai como pendência para a equipe' : `${p.count}x`}>
       {b.text}{p.count > 1 ? ` · ${p.count}x` : ''}{released ? ' · liberado' : ''}
