@@ -258,7 +258,7 @@
       },
       {
         "key": "data_parto",
-        "label": "Se o bebê já nasceu: data de nascimento. Se não nasceu: \"ainda não nasceu\" + previsão do parto (DD/MM/AAAA ou MM/AAAA). Se a previsão que consta já passou, NÃO confirme com um \"sim\": só registre quando ela disser a data real de nascimento (ou que ainda não nasceu e a nova previsão)",
+        "label": "Se o bebê já nasceu: data de nascimento. Se não nasceu: \"ainda não nasceu\" + previsão do parto (DD/MM/AAAA ou MM/AAAA). Se a previsão que consta já passou, NÃO confirme com um \"sim\": só registre quando ela disser a data real de nascimento (ou que ainda não nasceu e a nova previsão). Se ela disse que está grávida (ou o formulário diz) e informou a previsão, salve \"ainda não nasceu, previsão DD/MM/AAAA\"",
         "question": "Seu bebê já nasceu? Se sim, quando? Se ainda não, qual a previsão do parto?",
         "confirm_question": "Sobre o bebê: {valor}, confere?",
         "why": "A data do parto (ou a previsão) é o que define a partir de quando o benefício conta e o prazo pra pedir.",
@@ -675,8 +675,7 @@
         "data_saida_ctps": "07/12/2025",
         "data_parto": "previsão do parto 12/03/2027",
         "Você está grávida atualmente?": "Sim!",
-        "Já trabalhou registrada 1 ano antes?": "Sim, já trabalhei registrada 1 ano antes.",
-        "E-mail": "silvakelly74463@gmail.com"
+        "Já trabalhou registrada 1 ano antes?": "Sim, já trabalhei registrada 1 ano antes."
       },
       "lead_kinds": [
         "form"

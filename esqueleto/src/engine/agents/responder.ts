@@ -211,7 +211,7 @@ ${lines}`);
 
   const unmatched = Object.entries(status.unmatched());
   if (unmatched.length) {
-    parts.push(`Outros dados já registrados no perfil do contato, de origem externa (ex: formulário/anúncio) - as chaves não seguem um padrão fixo, interprete pelo conteúdo:\n${unmatched.map(([k, v]) => `- "${k}": "${String(v)}"`).join('\n')}`);
+    parts.push(`Outros dados já registrados no perfil do contato, de origem externa (ex: formulário/anúncio) - as chaves não seguem um padrão fixo, interprete pelo conteúdo. São só CONTEXTO: não pergunte nem peça confirmação deles (confirme apenas as PERGUNTAS DO ROTEIRO) e use-os para não perguntar o que já dá pra deduzir:\n${unmatched.map(([k, v]) => `- "${k}": "${String(v)}"`).join('\n')}`);
   }
 
   if (media.length) {
