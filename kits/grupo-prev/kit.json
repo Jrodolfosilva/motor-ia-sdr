@@ -677,7 +677,10 @@
         "Você está grávida atualmente?": "Sim!",
         "Já trabalhou registrada 1 ano antes?": "Sim, já trabalhei registrada 1 ano antes.",
         "E-mail": "silvakelly74463@gmail.com"
-      }
+      },
+      "lead_kinds": [
+        "form"
+      ]
     },
     "followup_confirmation": [
       {

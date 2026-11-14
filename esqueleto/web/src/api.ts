@@ -201,7 +201,12 @@ export interface FollowUpStep { step: number; delay_minutes: number; message: st
 export interface Faq { question: string; answer: string; replies?: ReceptionMessage[] | null }
 
 /** Lead de teste do simulador/link público. */
-export interface TestLead { cold_message?: string | null; name?: string; phone?: string; form_answers?: Record<string, string> }
+export type TestLeadKind = 'form' | 'frio';
+export interface TestLead {
+  cold_message?: string | null; name?: string; phone?: string; form_answers?: Record<string, string>;
+  /** Tipos de lead oferecidos no teste (link público). Vazio = os dois. */
+  lead_kinds?: TestLeadKind[] | null;
+}
 
 export interface KitFile {
   key: string;

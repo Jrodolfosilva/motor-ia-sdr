@@ -5,7 +5,7 @@ import GuardrailsEditor, { emptyGuardrails } from './GuardrailsEditor';
 import CrmEditor, { emptyCrm } from './CrmEditor';
 import PublicLinkCard from './PublicLinkCard';
 import {
-  api, type AgentConfig, type PublicLink, type Reception, type ReceptionMessage, type ClassificationLabel, type DocumentFileType, type FollowUpStep, type KitFile, type RequiredDocument, type Rule, type RuleOperator,
+  api, type AgentConfig, type PublicLink, type Reception, type ReceptionMessage, type ClassificationLabel, type DocumentFileType, type FollowUpStep, type KitFile, type TestLeadKind, type RequiredDocument, type Rule, type RuleOperator,
 } from './api';
 
 type Section = 'geral' | 'conduta' | 'crm' | 'recepcao' | 'explicacao' | 'prompt' | 'mensagens' | 'perguntas' | 'documentos' | 'classificacao' | 'faq' | 'followup' | 'publico' | 'json';
@@ -388,6 +388,24 @@ export default function AgentEditor({ agentKey, onSaved }: { agentKey: string; o
               <PublicLinkCard agentKey={agentKey} link={link} onChange={setLink} />
               <h2>Lead de teste</h2>
               <p className="muted">O que o simulador e a página do link público usam para começar uma conversa de teste.</p>
+              <div className="f">
+                <span>Tipos de lead no link público</span>
+                <div className="chips">
+                  {([['form', 'Veio do formulário'], ['frio', 'Chegou sem dados']] as const).map(([k, label]) => {
+                    const cur: TestLeadKind[] = a.test_lead?.lead_kinds?.length ? a.test_lead.lead_kinds : ['form', 'frio'];
+                    const on = cur.includes(k);
+                    const toggle = () => {
+                      const next = on ? cur.filter((x) => x !== k) : [...cur, k];
+                      if (!next.length) return; // pelo menos um
+                      setAgent({ test_lead: { ...a.test_lead, lead_kinds: next.length === 2 ? null : next } });
+                    };
+                    return (
+                      <label key={k} className={`chip${on ? ' on' : ''}`}><input type="checkbox" checked={on} onChange={toggle} /> {label}</label>
+                    );
+                  })}
+                </div>
+                <small>Só um marcado: a página não mostra a escolha e já abre nesse tipo.</small>
+              </div>
               <Text
                 label="Primeira mensagem do lead frio"
                 value={a.test_lead?.cold_message}

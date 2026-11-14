@@ -49,6 +49,9 @@ export default function EmbedSimulator({ options }: { options: EmbedOptions }) {
   const [agentName, setAgentName] = useState('Atendimento');
   const [docs, setDocs] = useState<RequiredDocument[]>([]);
   const [testLead, setTestLead] = useState<TestLead | null>(null);
+  // tipos de lead que o agente oferece no teste (um só = sem escolha na tela)
+  const kinds: LeadKind[] = testLead?.lead_kinds?.length ? testLead.lead_kinds : ['form', 'frio'];
+  const single = kinds.length === 1;
   const [off, setOff] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
@@ -106,7 +109,10 @@ export default function EmbedSimulator({ options }: { options: EmbedOptions }) {
         if (a.test_lead?.phone && !options.phone) setPhone(a.test_lead.phone);
         const r = initialRows(a.fields ?? [], a.test_lead, options.form);
         setRows(r);
-        start(lead, r, a.test_lead?.name ?? '', options.phone ?? a.test_lead?.phone ?? DEFAULT_PHONE);
+        const allowed: LeadKind[] = a.test_lead?.lead_kinds?.length ? a.test_lead.lead_kinds : ['form', 'frio'];
+        const first = allowed.includes(lead) ? lead : allowed[0];
+        if (first !== lead) setLead(first);
+        start(first, r, a.test_lead?.name ?? '', options.phone ?? a.test_lead?.phone ?? DEFAULT_PHONE);
       })
       .catch(fail);
   }, []);
@@ -190,10 +196,10 @@ export default function EmbedSimulator({ options }: { options: EmbedOptions }) {
         <aside className="embed-panel">
           <div className="embed-panel-head">
             <strong>Configurar o teste</strong>
-            <small>Escolha como o cliente chega. Mudou algo? Inicie uma nova conversa para valer.</small>
+            {!single && <small>Escolha como o cliente chega. Mudou algo? Inicie uma nova conversa para valer.</small>}
           </div>
 
-          {options.showLeadSwitch !== false && (
+          {options.showLeadSwitch !== false && !single && (
             <div className="seg embed-seg">
               <button className={lead === 'form' ? 'on' : ''} onClick={() => switchLead('form')} disabled={starting}>
                 <Zap size={14} /> Veio do formulário
@@ -203,11 +209,11 @@ export default function EmbedSimulator({ options }: { options: EmbedOptions }) {
               </button>
             </div>
           )}
-          <p className="embed-hint">
+          {!single && <p className="embed-hint">
             {lead === 'form'
               ? 'O cliente preencheu um formulário (anúncio ou site). A IA abre a conversa, confirma estes dados e segue o atendimento. Clique em "Iniciar" no celular.'
               : 'O cliente mandou mensagem sem nenhum dado. A IA faz o atendimento completo. A primeira mensagem já está escrita no celular: é só enviar.'}
-          </p>
+          </p>}
 
           <label className="embed-field">
             <span>Telefone com DDD</span>
