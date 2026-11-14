@@ -431,14 +431,45 @@ export default function AgentEditor({ agentKey, onSaved }: { agentKey: string; o
           )}
 
           {section === 'recepcao' && (
-            <ReceptionEditor
-              value={a.reception ?? legacyReception(a)}
-              onChange={(reception) => {
-                // ao editar, migra do formato antigo (greeting_example/consent_message) para reception
-                const { greeting_example: _g, consent_message: _c, ...rest } = a;
-                setKit({ ...kit, agent: { ...rest, reception } });
-              }}
-            />
+            <>
+              <ReceptionEditor
+                value={a.reception ?? legacyReception(a)}
+                onChange={(reception) => {
+                  // ao editar, migra do formato antigo (greeting_example/consent_message) para reception
+                  const { greeting_example: _g, consent_message: _c, ...rest } = a;
+                  setKit({ ...kit, agent: { ...rest, reception } });
+                }}
+              />
+              <h2>Confirmação dos dados do formulário</h2>
+              <p className="muted">
+                Lead de formulário: logo depois da recepção sai uma mensagem pronta com os dados que ela preencheu, um por linha
+                (pergunta em negrito, resposta normal), e a IA espera ela confirmar ou corrigir. Desligado: a IA escreve a confirmação.
+              </p>
+              <label className="f f-check">
+                <input
+                  type="checkbox"
+                  checked={!!a.form_confirmation?.enabled}
+                  onChange={(e) => setAgent({ form_confirmation: { ...a.form_confirmation, enabled: e.target.checked } })}
+                /> Enviar a confirmação em lista (mensagem pronta)
+              </label>
+              {a.form_confirmation?.enabled && (
+                <>
+                  <Text
+                    label="Texto antes da lista"
+                    value={a.form_confirmation?.intro}
+                    placeholder="{nome}, pode confirmar se os dados estão corretos?"
+                    onChange={(v) => setAgent({ form_confirmation: { ...a.form_confirmation!, intro: v || null } })}
+                    hint="{nome} = primeiro nome. Os rótulos das perguntas do roteiro se ajustam em Perguntas (Rótulo na confirmação)."
+                  />
+                  <Text
+                    label="Texto depois da lista (opcional)"
+                    value={a.form_confirmation?.outro}
+                    placeholder="Ex: Se algo estiver errado, é só me falar 😊"
+                    onChange={(v) => setAgent({ form_confirmation: { ...a.form_confirmation!, outro: v || null } })}
+                  />
+                </>
+              )}
+            </>
           )}
 
           {section === 'crm' && (
@@ -504,6 +535,13 @@ export default function AgentEditor({ agentKey, onSaved }: { agentKey: string; o
                           value={f.confirm_question}
                           onChange={(v) => upd({ confirm_question: v || null })}
                           hint="Opcional. Use {valor} para o que veio do form. Ex: A previsão do parto é pra {valor}, confere?"
+                        />
+                        <Text
+                          label="Rótulo na confirmação em lista"
+                          value={f.confirm_label}
+                          placeholder={f.question?.replace(/\?$/, '')}
+                          onChange={(v) => upd({ confirm_label: v || null })}
+                          hint="Aparece em negrito na mensagem pronta de confirmação (Recepção). Vazio = a pergunta."
                         />
                         <div className="f">
                           <span>Se a resposta não vier certa</span>

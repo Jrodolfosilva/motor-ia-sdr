@@ -10,6 +10,8 @@ export interface RequiredField {
   question: string;
   /** Como confirmar quando o dado já veio do formulário (Meta/LP). Opcional. */
   confirm_question?: string | null;
+  /** Rótulo curto na mensagem pronta de confirmação do formulário. Vazio = a pergunta. */
+  confirm_label?: string | null;
   /** Por que precisamos desse dado. A IA usa para reforçar quando o lead não sabe, recusa ou responde vago. */
   why?: string | null;
   /** Como o lead consegue descobrir/responder (onde olhar, o que serve como aproximação). */
@@ -100,6 +102,15 @@ export interface MediaItem {
 // ---------- Recepção (1º contato) ----------
 
 export type ReceptionKind = 'text' | 'audio' | 'video';
+
+/** Mensagem pronta que lista os dados do formulário para a lead confirmar (sem IA). */
+export interface FormConfirmation {
+  enabled: boolean;
+  /** Antes da lista. `{nome}` = primeiro nome. Vazio = "{nome}, pode confirmar se os dados estão corretos?". */
+  intro?: string | null;
+  /** Depois da lista (opcional). */
+  outro?: string | null;
+}
 
 /**
  * Pergunta frequente. `answer` = o que a IA sabe para responder com as palavras dela.
@@ -237,6 +248,8 @@ export interface Agent {
   followup_steps: FollowUpStep[];
   /** Lead de formulário que parou na confirmação inicial dos dados. Vazio = sequência padrão. */
   followup_confirmation?: FollowUpStep[] | null;
+  /** Confirmação dos dados do formulário em mensagem pronta (lista), logo depois da recepção. */
+  form_confirmation?: FormConfirmation | null;
   followup_final_wait_minutes?: number | null;
   followup_lost_reason_id?: number | null;
   log_executions: boolean;

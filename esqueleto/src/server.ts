@@ -44,7 +44,7 @@ function kitToAgent(raw: Record<string, any>, apiKey: string): Agent {
     classification_labels: a.classification_labels ?? [],
     handoff_message: a.handoff_message, disqualify_message: a.disqualify_message, fallback_message: a.fallback_message,
     handoff_keywords: a.handoff_keywords ?? [], max_turns: a.max_turns ?? 20, debounce_seconds: a.debounce_seconds ?? 8,
-    followup_steps: a.followup_steps ?? [], followup_confirmation: a.followup_confirmation ?? null, followup_final_wait_minutes: a.followup_final_wait_minutes,
+    followup_steps: a.followup_steps ?? [], followup_confirmation: a.followup_confirmation ?? null, form_confirmation: a.form_confirmation ?? null, followup_final_wait_minutes: a.followup_final_wait_minutes,
     log_executions: true,
     bubble_delay: a.bubble_delay ?? null,
   };

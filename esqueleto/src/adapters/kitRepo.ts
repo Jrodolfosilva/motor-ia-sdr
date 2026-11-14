@@ -92,7 +92,7 @@ export const KIT_SECTIONS: { id: string; label: string; paths: string[] }[] = [
   { id: 'prompt', label: 'System prompt', paths: ['agent.system_prompt'] },
   { id: 'conduta', label: 'Conduta e limites', paths: ['agent.guardrails', 'agent.fallback_message', 'agent.handoff_keywords'] },
   { id: 'faq', label: 'FAQ', paths: ['kit.faq'] },
-  { id: 'recepcao', label: '1. Recepção', paths: ['agent.reception', 'agent.greeting_example', 'agent.consent_message'] },
+  { id: 'recepcao', label: '1. Recepção', paths: ['agent.reception', 'agent.form_confirmation', 'agent.greeting_example', 'agent.consent_message'] },
   { id: 'perguntas', label: '2. Perguntas', paths: ['agent.required_fields'] },
   { id: 'explicacao', label: '3. Explicação', paths: ['agent.explanation'] },
   { id: 'documentos', label: '4. Documentos', paths: ['agent.required_documents'] },

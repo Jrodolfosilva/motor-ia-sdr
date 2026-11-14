@@ -228,7 +228,8 @@
             "message": "Oi! Se ainda tiver interesse no salário-maternidade, é só me responder aqui que eu continuo a sua análise 🙏🏼",
             "is_active": true
           }
-        ]
+        ],
+        "confirm_label": "Você está desempregada hoje"
       },
       {
         "key": "data_saida_ctps",
@@ -256,7 +257,8 @@
             "message": "Oi, {nome}! Essa data é importante porque o direito tem prazo 🙏🏼 Me responde aqui quando puder que eu sigo com a sua análise.",
             "is_active": true
           }
-        ]
+        ],
+        "confirm_label": "Data de saída do último emprego"
       },
       {
         "key": "data_parto",
@@ -284,7 +286,8 @@
             "message": "Oi, {nome}! Não quero que você perca o prazo do seu benefício 🙏🏼 Me responde aqui quando puder.",
             "is_active": true
           }
-        ]
+        ],
+        "confirm_label": "Previsão do parto"
       }
     ],
     "required_documents": [
@@ -676,7 +679,7 @@
         "situacao_trabalho": "Estou desempregada!",
         "data_saida_ctps": "07/12/2025",
         "Você está grávida atualmente?": "Sim!",
-        "data_parto": "previsão do parto 12/03/2027",
+        "data_parto": "12/03/2027",
         "Já trabalhou registrada 1 ano antes?": "Sim, já trabalhei registrada 1 ano antes."
       },
       "lead_kinds": [
@@ -702,6 +705,11 @@
         "message": "Oi, {nome}! Não quero que você perca o prazo do seu benefício 🙏🏼 Me responde aqui quando puder que eu sigo com você.",
         "is_active": true
       }
-    ]
+    ],
+    "form_confirmation": {
+      "enabled": true,
+      "intro": "{nome}, pode confirmar se os dados estão corretos?",
+      "outro": null
+    }
   }
 }

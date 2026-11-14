@@ -169,6 +169,8 @@ export interface ClassificationLabel {
 /** Pergunta do roteiro. */
 export interface RequiredField {
   key: string; label: string; question: string; confirm_question?: string | null;
+  /** Rótulo curto na mensagem pronta de confirmação do formulário (vazio = a pergunta). */
+  confirm_label?: string | null;
   /** Por que precisamos (a IA reforça quando a resposta não vem certa). */
   why?: string | null;
   /** Como a lead consegue descobrir/responder. */
@@ -247,6 +249,7 @@ export interface KitFile {
     guardrails?: Guardrails | null;
     crm?: CrmConfig | null;
     test_lead?: TestLead | null;
+    form_confirmation?: { enabled: boolean; intro?: string | null; outro?: string | null } | null;
     [k: string]: unknown;
   };
   [k: string]: unknown;

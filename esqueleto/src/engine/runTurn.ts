@@ -11,6 +11,7 @@ import { extract } from './agents/extractor';
 import { decide } from './agents/qualifier';
 import { reply } from './agents/responder';
 import { nextFaqReplies, sendFaqReply, type FaqPick } from './faq';
+import { buildFormConfirmation } from './formConfirmation';
 import { mediaNotices, newInbound, repliesToUnreadable } from './guardrails';
 import { classificationEvent, fireCrm } from './crm';
 import {
@@ -124,6 +125,13 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
     if (scenario.messages.length) {
       await sendReception(ctx, scenario, contact.phone);
       if (scenario.after === 'wait' && mediaOk) return; // IA só fala quando o lead responder
+    }
+    // lead de formulário: confirmação dos dados em mensagem pronta (lista) e espera a resposta dela
+    const confirmation = !isCold && formKeys.length ? buildFormConfirmation(agent, known) : null;
+    if (confirmation && mediaOk && !notices.length) {
+      await sendBubbles(ctx, [confirmation], null);
+      await store.saveState({ openingCompleted: true });
+      return;
     }
   }
 
