@@ -504,10 +504,15 @@
     },
     "test_lead": {
       "cold_message": "Olá, gostaria de mais informações sobre salário-maternidade",
+      "name": "Kelly Silva",
+      "phone": "5533999216260",
       "form_answers": {
-        "situacao_trabalho": "desempregada",
-        "data_saida_ctps": "saí há 4 meses",
-        "data_parto": "ainda não nasceu, previsão para 03/2027"
+        "situacao_trabalho": "Estou desempregada!",
+        "data_saida_ctps": "07/12/2025",
+        "data_parto": "previsão do parto 12/03/2027",
+        "Você está grávida atualmente?": "Sim!",
+        "Já trabalhou registrada 1 ano antes?": "Sim, já trabalhei registrada 1 ano antes.",
+        "E-mail": "silvakelly74463@gmail.com"
       }
     }
   }

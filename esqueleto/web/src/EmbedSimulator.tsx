@@ -62,10 +62,10 @@ export default function EmbedSimulator({ options }: { options: EmbedOptions }) {
     setError(msg.startsWith('404') ? 'Esta conversa expirou. Clique em "Iniciar nova conversa".' : msg);
   };
 
-  const customFields = (kind: LeadKind, formRows: FormRow[]): Record<string, string> => {
+  const customFields = (kind: LeadKind, formRows: FormRow[], nm: string = name): Record<string, string> => {
     if (kind === 'frio') return {};
     const out: Record<string, string> = {};
-    if (name.trim()) out.nome = name.trim();
+    if (nm.trim()) out.nome = nm.trim();
     for (const r of formRows) {
       const q = r.id.trim() || r.question.trim();
       if (q && r.value.trim()) out[q] = r.value.trim();
@@ -75,11 +75,11 @@ export default function EmbedSimulator({ options }: { options: EmbedOptions }) {
     return out;
   };
 
-  const start = async (kind: LeadKind = lead, formRows: FormRow[] = rows) => {
+  const start = async (kind: LeadKind = lead, formRows: FormRow[] = rows, nm: string = name, ph: string = phone) => {
     setStarting(true);
     setError(null);
     try {
-      setSession(await api.create({ token: options.token }, phone.replace(/\D/g, '') || DEFAULT_PHONE, customFields(kind, formRows)));
+      setSession(await api.create({ token: options.token }, ph.replace(/\D/g, '') || DEFAULT_PHONE, customFields(kind, formRows, nm)));
       setDirty(false);
     } catch (e) {
       fail(e);
@@ -102,9 +102,11 @@ export default function EmbedSimulator({ options }: { options: EmbedOptions }) {
         setAgentName(a.name);
         setDocs(a.documents);
         setTestLead(a.test_lead);
+        if (a.test_lead?.name) setName(a.test_lead.name);
+        if (a.test_lead?.phone && !options.phone) setPhone(a.test_lead.phone);
         const r = initialRows(a.fields ?? [], a.test_lead, options.form);
         setRows(r);
-        start(lead, r);
+        start(lead, r, a.test_lead?.name ?? '', options.phone ?? a.test_lead?.phone ?? DEFAULT_PHONE);
       })
       .catch(fail);
   }, []);

@@ -347,8 +347,10 @@ function view(s: Session, admin = false) {
 // O turno roda em background: o lead pode escrever enquanto a IA ainda está "digitando".
 // Mensagem nova no meio → o motor descarta os balões restantes e um novo turno roda em seguida.
 
-const SIM_DEBOUNCE_MS = Number(process.env.SIM_DEBOUNCE_MS ?? 1500); // junta rajada de mensagens
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+// SIM_FAST=1 (só no .env local, modo dev): sem debounce e sem pausa de "digitando…" entre balões
+const SIM_FAST = process.env.SIM_FAST === '1';
+const SIM_DEBOUNCE_MS = SIM_FAST ? 0 : Number(process.env.SIM_DEBOUNCE_MS ?? 1500); // junta rajada de mensagens
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, SIM_FAST ? 0 : ms));
 const subscribers = new Map<string, Set<{ res: express.Response; admin: boolean }>>();
 const turns = new Map<string, { running: boolean; again: boolean; timer: NodeJS.Timeout | null }>();
 

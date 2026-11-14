@@ -88,6 +88,8 @@ export default function Simulator({ agentKey }: { agentKey: string }) {
     api.getAgent(agentKey).then((a) => {
       setAgentName(a.kit.agent.name ?? a.kit.kit.name);
       setTestLead(a.kit.agent.test_lead ?? null);
+      if (a.kit.agent.test_lead?.name) setNome(a.kit.agent.test_lead.name);
+      if (a.kit.agent.test_lead?.phone) setPhone(a.kit.agent.test_lead.phone);
       // respostas do lead de teste já aparecem preenchidas (chave = pergunta do roteiro)
       const answers = a.kit.agent.test_lead?.form_answers ?? {};
       const keys = new Set(a.kit.agent.required_fields.map((f) => f.key));

@@ -182,7 +182,7 @@ export interface FollowUpStep { step: number; delay_minutes: number; message: st
 export interface Faq { question: string; answer: string }
 
 /** Lead de teste do simulador/link público. */
-export interface TestLead { cold_message?: string | null; form_answers?: Record<string, string> }
+export interface TestLead { cold_message?: string | null; name?: string; phone?: string; form_answers?: Record<string, string> }
 
 export interface KitFile {
   key: string;
