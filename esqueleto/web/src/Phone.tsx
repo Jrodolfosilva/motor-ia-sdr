@@ -21,6 +21,31 @@ function waFormat(text: string): ReactNode[] {
   return out;
 }
 
+/**
+ * Vídeo-recado do WhatsApp (bolinha): roda mudo em loop; tocar liga o som e recomeça, tocar de novo pausa.
+ */
+export function VideoNote({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [sound, setSound] = useState(false);
+  const toggle = () => {
+    const v = ref.current;
+    if (!v) return;
+    if (!sound) { v.muted = false; v.loop = false; v.currentTime = 0; v.play().catch(() => {}); setSound(true); return; }
+    if (v.paused) v.play().catch(() => {}); else v.pause();
+  };
+  const ended = () => {
+    const v = ref.current;
+    if (!v) return;
+    v.muted = true; v.loop = true; v.play().catch(() => {}); setSound(false);
+  };
+  return (
+    <button type="button" className={`wa-note${sound ? ' playing' : ''}`} onClick={toggle} aria-label="Vídeo-recado">
+      <video ref={ref} src={src} muted loop autoPlay playsInline preload="metadata" onEnded={ended} />
+      {!sound && <span className="wa-note-icon">🔈</span>}
+    </button>
+  );
+}
+
 interface Props {
   contactName: string;
   messages: SimMessage[];
@@ -246,7 +271,7 @@ export default function Phone({ contactName, messages, typing, closed, documents
             const analysis = m.aiAnalysis && !('failed' in m.aiAnalysis) ? (m.aiAnalysis as MediaAnalysis) : null;
             return (
               <div key={m.id} className={`wa-row ${mine ? 'out' : 'in'}`}>
-                <div className={`wa-bubble ${mine ? 'out' : 'in'}${reaction ? ' has-reaction' : ''}${m.type === 'image' || m.type === 'document' ? ' file' : ''}`}>
+                <div className={`wa-bubble ${mine ? 'out' : 'in'}${reaction ? ' has-reaction' : ''}${m.type === 'image' || m.type === 'document' ? ' file' : ''}${m.type === 'video' && m.videoNote ? ' note' : ''}`}>
                   {m.type === 'image' && (src
                     ? <a href={src} target="_blank" rel="noreferrer"><img className="wa-img" src={src} alt="" /></a>
                     : <div className="wa-file"><span className="wa-file-icon"><ImageIcon size={20} /></span><span className="wa-file-meta"><strong>Foto</strong></span></div>)}
@@ -267,7 +292,7 @@ export default function Phone({ contactName, messages, typing, closed, documents
                       {m.transcribing || m.id.startsWith('tmp-') ? 'transcrevendo…' : m.transcript ? `📝 ${m.transcript}` : '⚠️ sem transcrição'}
                     </span>
                   )}
-                  {m.type === 'video' && src && <video className="wa-video" controls preload="metadata" src={src} />}
+                  {m.type === 'video' && src && (m.videoNote ? <VideoNote src={src} /> : <video className="wa-video" controls preload="metadata" src={src} />)}
                   {(m.type === 'audio' || m.type === 'video') && !mine && m.transcript && (
                     <details className="wa-transcript"><summary>o que diz</summary>{m.transcript}</details>
                   )}

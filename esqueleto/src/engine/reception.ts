@@ -63,8 +63,9 @@ export async function sendReception(ctx: TurnContext, scenario: ReceptionScenari
       path: m.media!.path,
       mime: m.media!.mime,
       file_name: m.media!.file_name,
-      caption: m.kind === 'video' ? m.caption ?? undefined : undefined,
+      caption: m.kind === 'video' && m.video_note === false ? m.caption ?? undefined : undefined,
       transcript: m.transcript ?? null,
+      video_note: m.kind === 'video' && m.video_note !== false,
     });
     if (ctx.pacing) await channel.setTyping?.(false);
   }

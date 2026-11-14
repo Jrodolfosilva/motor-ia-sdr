@@ -94,7 +94,7 @@ export function buildSimulatorContext(
   const channel: ChannelPort = {
     async sendText(text) { push({ role: 'assistant', direction: 'outbound', type: 'text', body: text }); },
     async sendMedia(item) {
-      push({ role: 'assistant', direction: 'outbound', type: item.type as any, body: item.caption ?? '', mediaPath: item.path, transcript: item.transcript ?? null });
+      push({ role: 'assistant', direction: 'outbound', type: item.type as any, body: item.video_note ? '' : item.caption ?? '', mediaPath: item.path, transcript: item.transcript ?? null, videoNote: item.type === 'video' && !!item.video_note });
     },
     async sendReaction(to, emoji) {
       push({ role: 'assistant', direction: 'outbound', type: 'reaction', body: emoji, replyTo: to.id });

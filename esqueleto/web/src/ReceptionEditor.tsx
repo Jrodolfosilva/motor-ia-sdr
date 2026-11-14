@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { FileAudio, FileVideo, MessageSquareText, PauseCircle, PlayCircle, Upload, Users, X, Zap } from 'lucide-react';
+import { VideoNote } from './Phone';
 import {
   api, kitFileUrl, type Reception, type ReceptionKind, type ReceptionMessage, type ReceptionScenario,
 } from './api';
@@ -101,7 +102,9 @@ export function Slot({ title, msg, onChange }: { title: string; msg: ReceptionMe
             <div className="rx-media">
               {kind === 'audio'
                 ? <audio controls src={kitFileUrl(msg!.media!.path)} />
-                : <video controls src={kitFileUrl(msg!.media!.path)} />}
+                : msg!.video_note !== false
+                  ? <VideoNote src={kitFileUrl(msg!.media!.path)} />
+                  : <video controls src={kitFileUrl(msg!.media!.path)} />}
               <div className="rx-media-meta">
                 <span title={msg!.media!.path}>{msg!.media!.file_name ?? msg!.media!.path}</span>
                 <button type="button" className="btn small" onClick={() => fileRef.current?.click()} disabled={uploading}><Upload size={14} /> Trocar</button>
@@ -115,6 +118,20 @@ export function Slot({ title, msg, onChange }: { title: string; msg: ReceptionMe
           )}
           {err && <div className="err">{err}</div>}
           {kind === 'video' && (
+            <div className="f">
+              <span>Formato do vídeo</span>
+              <div className="seg seg-2">
+                <button type="button" className={msg?.video_note !== false ? 'on' : ''} onClick={() => onChange({ ...msg!, video_note: true })}>⬤ Vídeo-recado (bolinha)</button>
+                <button type="button" className={msg?.video_note === false ? 'on' : ''} onClick={() => onChange({ ...msg!, video_note: false })}>▭ Vídeo normal</button>
+              </div>
+              <small>
+                {msg?.video_note !== false
+                  ? 'Como o vídeo redondo do WhatsApp: até 60 segundos, sem legenda. Grave de frente, com o rosto no centro (as bordas são cortadas).'
+                  : 'Vídeo comum, com legenda opcional.'}
+              </small>
+            </div>
+          )}
+          {kind === 'video' && msg?.video_note === false && (
             <label className="f">
               <span>Legenda do vídeo (opcional)</span>
               <input value={msg?.caption ?? ''} onChange={(e) => onChange({ ...msg!, caption: e.target.value || null })} />

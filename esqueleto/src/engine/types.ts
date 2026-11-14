@@ -97,6 +97,8 @@ export interface MediaItem {
   send_on_handoff?: boolean;
   /** O que o áudio/vídeo diz. Entra no histórico para a IA saber o que já foi falado. */
   transcript?: string | null;
+  /** Vídeo-recado do WhatsApp (a "bolinha": vídeo curto, redondo, sem legenda). */
+  video_note?: boolean;
 }
 
 // ---------- Recepção (1º contato) ----------
@@ -131,10 +133,12 @@ export interface ReceptionMessage {
   text?: string | null;
   /** Arquivo (kind=audio|video), caminho relativo à pasta do kit. */
   media?: { path: string; mime?: string; file_name?: string } | null;
-  /** Legenda do vídeo. */
+  /** Legenda do vídeo (vídeo normal; vídeo-recado não tem legenda). */
   caption?: string | null;
   /** O que o áudio/vídeo diz (a IA não ouve o arquivo; usa isto como contexto). */
   transcript?: string | null;
+  /** Vídeo vai como vídeo-recado (bolinha, até 60 s). Vazio = sim; false = vídeo normal. */
+  video_note?: boolean | null;
 }
 
 export interface ReceptionScenario {
@@ -307,6 +311,8 @@ export interface StoredMessage {
   transcript?: string | null;
   aiAnalysis?: MediaAnalysis | { failed: true } | null;
   externalId?: string | null;
+  /** Vídeo enviado como vídeo-recado (bolinha). */
+  videoNote?: boolean;
 }
 
 export type HandoffReason =

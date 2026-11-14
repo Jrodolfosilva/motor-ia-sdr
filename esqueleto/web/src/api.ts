@@ -30,6 +30,8 @@ export interface SimMessage {
   transcribing?: boolean;
   /** Nome original do arquivo enviado. */
   fileName?: string;
+  /** Vídeo-recado do WhatsApp (bolinha). */
+  videoNote?: boolean;
   aiAnalysis?: MediaAnalysis | { failed: true } | null;
 }
 
@@ -107,6 +109,8 @@ export interface ReceptionMessage {
   media?: { path: string; mime?: string; file_name?: string } | null;
   caption?: string | null;
   transcript?: string | null;
+  /** Vídeo como vídeo-recado (bolinha). Vazio = sim; false = vídeo normal. */
+  video_note?: boolean | null;
 }
 export interface ReceptionScenario { messages: ReceptionMessage[]; after: 'wait' | 'continue' }
 export interface Reception { volume: ReceptionScenario; form: ReceptionScenario; append_state_presence?: boolean }

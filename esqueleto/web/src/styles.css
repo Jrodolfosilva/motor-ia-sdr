@@ -581,3 +581,13 @@ a.wa-file { color: inherit; text-decoration: none; }
 .faq-reply { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-bottom: 12px; }
 .faq-reply > .item { width: 100%; }
 .faq-add { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Vídeo-recado do WhatsApp (bolinha) */
+.wa-bubble.note { background: transparent !important; box-shadow: none; padding: 0; }
+.wa-bubble.note::before { display: none; }
+.wa-bubble.note .wa-meta { position: absolute; right: 10px; bottom: 8px; background: #0007; color: #fff; padding: 1px 6px; border-radius: 9px; }
+.wa-note { position: relative; display: block; width: 200px; height: 200px; padding: 0; border: 0; border-radius: 50%; overflow: hidden; background: #000; cursor: pointer; }
+.wa-note video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wa-note.playing { box-shadow: 0 0 0 3px #25d366; }
+.wa-note-icon { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); background: #0008; color: #fff; font-size: 12px; padding: 2px 8px; border-radius: 10px; }
+.rx-media .wa-note { width: 160px; height: 160px; }
