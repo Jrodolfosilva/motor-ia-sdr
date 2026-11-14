@@ -98,7 +98,7 @@ export const KIT_SECTIONS: { id: string; label: string; paths: string[] }[] = [
   { id: 'documentos', label: '4. Documentos', paths: ['agent.required_documents'] },
   { id: 'classificacao', label: '5. Classificação', paths: ['agent.classification_labels'] },
   { id: 'mensagens', label: '6. Encerramento', paths: ['agent.handoff_message', 'agent.disqualify_message'] },
-  { id: 'followup', label: 'Follow-up', paths: ['agent.followup_steps', 'agent.followup_final_wait_minutes'] },
+  { id: 'followup', label: 'Follow-up', paths: ['agent.followup_steps', 'agent.followup_confirmation', 'agent.followup_final_wait_minutes'] },
   { id: 'crm', label: 'CRM / Kanban', paths: ['agent.crm'] },
   { id: 'teste', label: 'Teste (lead frio e formulário de exemplo)', paths: ['agent.test_lead'] },
 ];
