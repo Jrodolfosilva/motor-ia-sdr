@@ -143,11 +143,13 @@
         "messages": [
           {
             "kind": "text",
-            "text": "Olá, tudo bem? ❤️ Aqui é do *Grupo Prev*, especialistas em *salário-maternidade* 🤰🏻🤱🏻"
+            "enabled": true,
+            "text": "Olá, mamãe! Seja muito bem-vinda à *PrevX Assessoria Maternidade*!\n\nVocê está em boas mãos! Já ajudamos *mais de 15 mil mães*, com uma taxa de aprovação de *98,7%* e *mais de 13 anos* de experiência no mercado.\n\nRecebemos suas respostas do formulário, vou te enviar abaixo para verificar seu direito ao *Auxílio-Maternidade*."
           },
           {
             "kind": "text",
-            "text": "Recebi seu formulário 🥰 Vou só *confirmar seus dados* rapidinho e já te peço os *documentos* pra adiantar sua análise."
+            "enabled": false,
+            "text": "Vi que você já preencheu nosso formulário 🥰 Vou só confirmar seus dados rapidinho e te pedir os documentos pra adiantar sua análise."
           }
         ]
       },
