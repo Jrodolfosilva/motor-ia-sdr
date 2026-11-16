@@ -52,7 +52,7 @@ function kitToAgent(raw: Record<string, any>, apiKey: string): Agent {
 
 // Agentes: vários no MongoDB (coleção kits), cada conversa usa o agente em que foi criada.
 // Banco vazio → importa este kit.json como agente inicial.
-const KIT_SEED = process.env.KIT_PATH ?? join(__dirname, '../../kits/salario-maternidade/kit.json');
+const KIT_SEED = process.env.KIT_PATH ?? join(__dirname, '../../kits/grupo-prev/kit.json');
 const API_KEY = process.env.TOGETHER_API_KEY ?? '';
 const llm = openAiCompatible('together');
 

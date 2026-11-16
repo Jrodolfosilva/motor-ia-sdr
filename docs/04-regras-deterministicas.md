@@ -1,7 +1,5 @@
 # 04. Regras determinísticas (código, sem LLM)
 
-Fonte: `referencia-laravel/app/Services/Ai/Onboarding/{RequiredFieldsStatus,ClassificationRuleEvaluator}.php`, `referencia-laravel/app/Support/{DurationNormalizer,AiTimeContext,BrazilianDdd}.php`.
-
 Esses módulos são **puros** (sem I/O): porte primeiro e cubra com testes unitários. São os mais fáceis de testar e os que mais protegem o comportamento.
 
 ## RequiredFieldsStatus
@@ -61,8 +59,8 @@ CONTEXTO ATUAL: hoje é {segunda-feira}, {02/11/2026} ({2 de novembro}), ano atu
 Motivo: sem a data de hoje o modelo não resolve "nasceu semana passada" e chegou a perguntar se a lead "ainda estava grávida".
 
 ## BrazilianDdd
-- `stateFor(phone)`: só dígitos; precisa começar com `55` e ter ≥4 dígitos; DDD = dígitos[2..4] → `{uf, name}` ou null. Mapa completo em `referencia-laravel/app/Support/BrazilianDdd.php`.
-- `inState(state)`: preposição + nome ("na Bahia", "no Rio de Janeiro", "em Minas Gerais"). Copie a tabela `PREPOSITIONS` do arquivo de referência.
+- `stateFor(phone)`: só dígitos; precisa começar com `55` e ter ≥4 dígitos; DDD = dígitos[2..4] → `{uf, name}` ou null. Mapa completo em `esqueleto/src/engine/rules/misc.ts`.
+- `inState(state)`: preposição + nome ("na Bahia", "no Rio de Janeiro", "em Minas Gerais"). Tabela `PREPOSITIONS` no mesmo arquivo.
 - Usado na saudação: `" Atendemos em todo o Brasil, com forte presença {inState}."`. Isso é **concatenado em código**, não pedido ao LLM (modelo barato pulava).
 
 ## splitIntoBubbles(text)

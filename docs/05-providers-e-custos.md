@@ -46,9 +46,9 @@ Groq Whisper `whisper-large-v3-turbo` (endpoint OpenAI-compat `/audio/transcript
 | openai | `gpt-4o` | `gpt-4o-mini` | `gpt-4o-mini` |
 | deepseek | `deepseek-chat` | `deepseek-chat` | (sem visão: mídia → handoff) |
 
-Preços (USD / 1M tokens: input · cached · output) e lista completa em `referencia-laravel/config/ai_models.php`. O comando `ai:sync-models --remote=together` puxava preços do `/models` do Together (rodava diariamente).
+Preços (USD / 1M tokens: input · cached · output) vêm do catálogo de modelos (`/models` do Together).
 
-Benchmark real (20 conversas anonimizadas BellaPrev): Flash 97% de acerto a US$ 0.003 vs Pro 93%. Custo medido ponta a ponta: **~US$ 0.03–0.05 por lead qualificado**.
+Benchmark real (20 conversas anonimizadas): Flash 97% de acerto a US$ 0.003 vs Pro 93%. Custo medido ponta a ponta: **~US$ 0.03–0.05 por lead qualificado**.
 
 ## Registro de uso/custo (`ai_usages`)
 Uma linha por chamada LLM (sempre, independente de `log_executions`):

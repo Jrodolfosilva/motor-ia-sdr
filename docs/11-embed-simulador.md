@@ -2,7 +2,7 @@
 
 O motor é um só; cada **agente** é uma configuração dele (um segmento, um cliente, um template).
 Agentes ficam no MongoDB (coleção `kits`). O salário-maternidade é só o agente inicial, importado de
-`kits/salario-maternidade/kit.json` quando o banco está vazio, e vem marcado como template.
+`kits/grupo-prev/kit.json` quando o banco está vazio, e vem marcado como template.
 
 ## Agentes (painel → Agentes)
 

@@ -17,7 +17,7 @@ Um agente dentro do kit. Hoje só existe o papel **SDR/onboarding** em uso real.
 |---|---|
 | `provider` + `api_key` | together / openai / anthropic / deepseek. Key do cliente (criptografada) |
 | `model` + `models{responder,extractor,qualifier,vision}` | modelo por papel; fallback para `model` |
-| `system_prompt` | persona + regras de conversa (ver `kits/salario-maternidade/system-prompt.md`) |
+| `system_prompt` | persona + regras de conversa (ver `kits/grupo-prev/system-prompt.md`) |
 | `greeting_example` | 1ª mensagem fixa, enviada pelo código |
 | `consent_message` | 2ª msg fixa só para lead **frio** ("posso te fazer umas perguntas?") |
 | `required_fields` | **roteiro**: `[{key, label, question}]` |
@@ -96,4 +96,4 @@ Mais um sub-agente auxiliar: **MediaAnalyzer** (visão), que transforma imagem/P
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-Por que assim: no Laravel existem **dois runners copiados à mão** (`AiOnboardingAgentRunner` e `AiPlaygroundRunner`) que precisam ser mantidos em sincronia. Esse foi o maior custo de manutenção. No projeto novo, **um runner só**, e o simulador é apenas outro adapter.
+Por que assim: **um runner só**; o simulador é apenas outro adapter. Dois runners paralelos (produção e simulador) exigiriam sincronia manual e custam caro de manter.

@@ -1,4 +1,4 @@
-# Hub de IA: motor de orquestração (extraído do SendGreen/ZeroMsg)
+# Hub de IA: motor de orquestração
 
 Esta pasta guarda toda a lógica do **Hub de IA**, o motor que faz agentes de atendimento (SDR) conversarem com leads, coletarem dados, classificarem e passarem para um humano. O objetivo é **reimplementar esse motor num projeto Express (Node + TypeScript) independente do CRM**.
 
@@ -20,8 +20,7 @@ Esta pasta guarda toda a lógica do **Hub de IA**, o motor que faz agentes de at
 | `docs/09-plano-express.md` | **Estrutura de pastas Express, adaptadores, Fase 1 → Fase 2, checklist** |
 | `docs/10-licoes-aprendidas.md` | Bugs e armadilhas que já custaram caro. Não repetir. |
 | `esqueleto/` | Esqueleto TypeScript do motor (tipos, runner, sub-agentes, regras, provider Together, simulador mínimo). Typecheck limpo e 15 testes com LLM fake passando. Ainda não testado com chave real. |
-| `kits/salario-maternidade/` | Template de kit real (JSON + system prompt) para usar de fixture |
-| `referencia-laravel/` | **Cópia fiel** do código PHP original (services, models, migrations, config). Consulte quando a doc não bastar |
+| `kits/grupo-prev/` | Agente-modelo Grupo Prev (JSON + system prompt): seed do banco vazio e fixture |
 
 ## Resumo em 30 segundos
 
@@ -40,11 +39,3 @@ mensagem chega → pré-checks (áudio→texto, keyword de humano, mídia ilegí
 ```
 
 Princípio central: **o LLM nunca decide sozinho o que pode ser decidido em código.** O gate "roteiro completo" é código. Regras de elegibilidade são código. Datas e DDD são código. O LLM só redige, extrai e julga casos ambíguos.
-
-## Origem
-
-Código original: `repo/` (Laravel 13 + Inertia/React). Arquivos principais:
-- `app/Services/Ai/AiOnboardingAgentRunner.php`: runner de produção (WhatsApp + kanban)
-- `app/Services/Ai/AiPlaygroundRunner.php`: runner do simulador (é a referência da **Fase 1**)
-- `app/Services/Ai/Onboarding/*`: sub-agentes e regras
-- `app/Services/WhatsApp/WebhookHandler.php::maybeRunAiOnboardingAgent()`: gatilho

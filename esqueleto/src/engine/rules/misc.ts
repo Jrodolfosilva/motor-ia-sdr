@@ -2,7 +2,6 @@
 
 type State = { uf: string; name: string };
 
-// Mapa completo: referencia-laravel/app/Support/BrazilianDdd.php (MAP).
 const UF_BY_DDD: Record<number, string> = {
   11: 'SP', 12: 'SP', 13: 'SP', 14: 'SP', 15: 'SP', 16: 'SP', 17: 'SP', 18: 'SP', 19: 'SP',
   21: 'RJ', 22: 'RJ', 24: 'RJ', 27: 'ES', 28: 'ES',

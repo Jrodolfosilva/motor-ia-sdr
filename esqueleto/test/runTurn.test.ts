@@ -9,7 +9,7 @@ function agent(over: Partial<Agent> = {}): Agent {
   return {
     id: 'a', kit: { id: 'k', name: 'k', faq: [], media_library: [] },
     provider: 'together', apiKey: 'x', model: 'm', system_prompt: 'persona',
-    greeting_example: 'Olá! Sou a Bella.', consent_message: 'Posso fazer umas perguntas?',
+    greeting_example: 'Olá! Sou a Ana.', consent_message: 'Posso fazer umas perguntas?',
     required_fields: [{ key: 'data_saida_ctps', label: 'Data de saída', question: 'Quando saiu?' }],
     required_documents: [],
     classification_labels: [
@@ -48,7 +48,7 @@ describe('runTurn', () => {
     const ctx = buildSimulatorContext(s, agent(), fakeLlm({}), noVision);
     appendUser(s, { type: 'text', body: 'oi' });
     await runTurn(ctx);
-    expect(texts(s)).toEqual(['Olá! Sou a Bella. Atendemos em todo o Brasil, com forte presença na Bahia.', 'Posso fazer umas perguntas?']);
+    expect(texts(s)).toEqual(['Olá! Sou a Ana. Atendemos em todo o Brasil, com forte presença na Bahia.', 'Posso fazer umas perguntas?']);
   });
 
   it('lead de formulário sem mensagem ("Iniciar"): IA abre a conversa', async () => {
@@ -228,11 +228,11 @@ describe('runTurn', () => {
     const reception = {
       append_state_presence: false,
       volume: { after: 'wait' as const, messages: [
-        { kind: 'video' as const, media: { path: 'media/oi.mp4' }, transcript: 'Oi, sou a Bella do escritório X' },
+        { kind: 'video' as const, media: { path: 'media/oi.mp4' }, transcript: 'Oi, sou a Ana do escritório X' },
         { kind: 'text' as const, text: 'Vou te fazer umas perguntas rapidinhas, tá?' },
       ] },
       form: { after: 'continue' as const, messages: [
-        { kind: 'text' as const, text: 'Oi! Sou a Bella.' },
+        { kind: 'text' as const, text: 'Oi! Sou a Ana.' },
         { kind: 'audio' as const, media: { path: 'media/form.ogg' }, transcript: 'Vi que você preencheu nosso formulário' },
       ] },
     };
@@ -272,7 +272,7 @@ describe('runTurn', () => {
       await runTurn(buildSimulatorContext(s, agent({ reception }), llm, noVision));
       const out = s.messages.filter((m) => m.role === 'assistant');
       expect(out.map((m) => m.type)).toEqual(['text', 'audio', 'text']);
-      expect(out[0].body).toBe('Oi! Sou a Bella.');
+      expect(out[0].body).toBe('Oi! Sou a Ana.');
       expect(responderSystem).toContain('RECEPÇÃO JÁ ENVIADA');
       expect(responderSystem).toContain('Vi que você preencheu nosso formulário');
 
@@ -291,7 +291,7 @@ describe('runTurn', () => {
     expect(await intake(ctx, m, true)).toBe('schedule');
     await runTurn(ctx);
     expect(s.messages.find((x) => x.id === m.id)?.aiAnalysis).toMatchObject({ resumo: 'print de conversa' });
-    expect(texts(s)).toEqual(['Olá! Sou a Bella. Atendemos em todo o Brasil, com forte presença em São Paulo.', 'Posso fazer umas perguntas?']);
+    expect(texts(s)).toEqual(['Olá! Sou a Ana. Atendemos em todo o Brasil, com forte presença em São Paulo.', 'Posso fazer umas perguntas?']);
   });
 
   describe('desqualificação antecipada (empregada não é público)', () => {

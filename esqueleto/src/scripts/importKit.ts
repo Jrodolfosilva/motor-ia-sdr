@@ -14,7 +14,7 @@ import { KitModel } from '../db/models/Kit';
 import { readKitJson } from '../adapters/kitRepo';
 
 async function main() {
-  const path = process.argv[2] ?? process.env.KIT_PATH ?? join(__dirname, '../../../kits/salario-maternidade/kit.json');
+  const path = process.argv[2] ?? process.env.KIT_PATH ?? join(__dirname, '../../../kits/grupo-prev/kit.json');
   const raw = readKitJson(path);
   const key: string = raw.key;
   if (!key) throw new Error(`${path} não tem "key"`);

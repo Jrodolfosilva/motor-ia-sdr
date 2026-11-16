@@ -126,7 +126,7 @@ Ordem de implementação:
 7. `mediaAnalyzer` + `transcriber`
 8. `usage` + logs + painel de custo
 
-**Critério de pronto da Fase 1:** rodar o kit `salario-maternidade` com os cenários (a) lead frio completo, (b) lead de formulário, (c) manda CTPS em foto, (d) pede humano, (e) "nunca trabalhei registrada" → desqualifica, (f) rajada de 3 mensagens, (g) provider fora → fallback.
+**Critério de pronto da Fase 1:** rodar o kit `grupo-prev` com os cenários (a) lead frio completo, (b) lead de formulário, (c) manda CTPS em foto, (d) pede humano, (e) "nunca trabalhei registrada" → desqualifica, (f) rajada de 3 mensagens, (g) provider fora → fallback.
 
 ## FASE 2: WhatsApp + kanban
 

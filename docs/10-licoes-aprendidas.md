@@ -4,7 +4,7 @@ Cada item custou debug real em produção ou em teste live. Mantenha a proteçã
 
 1. **Histórico terminando em `assistant`:** remova as mensagens assistant do fim antes de chamar o LLM. Anthropic trata como prefill e continua escrevendo. OpenAI-compat (Together/DeepSeek) entende como "já respondi" e devolve **vazio**, e o lead quente recebia o fallback no 1º turno.
 2. **Ordenar histórico por id, não por timestamp.** Várias mensagens no mesmo segundo embaralham a ordem: a confirmação do lead aparece antes da pergunta.
-3. **Limite de histórico pega as N mais recentes:** `ORDER BY id DESC LIMIT 40` e depois inverte. (No Laravel, um `orderBy` embutido na relação fazia cortar as mais antigas.)
+3. **Limite de histórico pega as N mais recentes:** `ORDER BY id DESC LIMIT 40` e depois inverte. (Um `orderBy` crescente antes do limite corta as mais recentes.)
 4. **Gate do roteiro em código:** o qualifier nem é chamado com campo faltando. Sem isso o LLM classificava cedo "porque a conversa parecia completa".
 5. **Desqualificar exige regra quando a label tem `rules`.** É a única decisão sem volta.
 6. **Normalizar duração** ("oito meses" = "8 meses"), porque o qualifier só lê o valor salvo.

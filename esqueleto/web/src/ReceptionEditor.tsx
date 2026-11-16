@@ -143,7 +143,7 @@ export function Slot({ title, msg, onChange }: { title: string; msg: ReceptionMe
               rows={3}
               value={msg?.transcript ?? ''}
               onChange={(e) => onChange({ ...msg!, transcript: e.target.value || null })}
-              placeholder="Ex: Oi, tudo bem? Aqui é a Bella, do escritório..."
+              placeholder="Ex: Oi, tudo bem? Aqui é do escritório..."
             />
             <small>A IA não escuta o arquivo. Ela usa este texto para saber o que já foi dito e não se apresentar de novo.</small>
           </label>

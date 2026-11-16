@@ -154,7 +154,7 @@ Você analisa arquivos (fotos e PDFs) que leads enviam pelo WhatsApp para um esc
 ---
 
 ## System prompt do agente (persona)
-Exemplo completo de produção em `kits/salario-maternidade/system-prompt.md`. Estrutura que funcionou:
+Exemplo completo de produção em `kits/grupo-prev/system-prompt.md`. Estrutura que funcionou:
 `# PERSONA` · `# COMO FALAR` (com pares Ruim/Bom) · `# O ROTEIRO` · `# ARQUIVOS QUE ELA MANDA` · `# BASE DE CONHECIMENTO - RESPONDA SÓ COM BASE NELA` · `# VALOR E RESULTADO` · `# URGÊNCIA REAL` · `# RECUSA E FUGA DO ROTEIRO` · `# DADOS DE FORMULÁRIO NO PERFIL`.
 
 Truque importante: texto que o modelo **pulava** quando estava no prompt (o "pitch") foi colocado dentro do `question` do campo `print_ctps`. Campo do roteiro é seguido com muito mais fidelidade que instrução solta.

@@ -1,6 +1,6 @@
 # Esqueleto TypeScript do motor
 
-Ponto de partida para o projeto Express. Porte fiel da lógica do Laravel, com **um runner só** e adapters.
+Ponto de partida para o projeto Express. Um **runner só** e adapters.
 
 ```bash
 # tudo no Docker (app + MongoDB + Redis + MinIO), a partir da raiz do repo:

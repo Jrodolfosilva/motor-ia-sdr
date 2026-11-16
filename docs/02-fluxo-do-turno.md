@@ -1,10 +1,8 @@
 # 02. Fluxo do turno (passo a passo)
 
-Referência: `referencia-laravel/app/Services/WhatsApp/...` (gatilho, ver trecho abaixo), `AiOnboardingAgentRunner::run()`, `AiPlaygroundRunner::handle()/runTurn()`.
-
 ## Etapa A: chegada da mensagem (síncrono, no webhook)
 
-Equivalente a `WebhookHandler::maybeRunAiOnboardingAgent()`. Ordem exata:
+Ordem exata:
 
 1. **Gate de elegibilidade.** Só segue se:
    - existe conexão/canal,
@@ -23,7 +21,6 @@ Equivalente a `WebhookHandler::maybeRunAiOnboardingAgent()`. Ordem exata:
 
 ## Etapa B: debounce
 
-`AiOnboardingAgentDebouncer`:
 ```
 token = uuid()
 cache.set(`ai_turn:${agentId}:${contactId}`, token, ttl = debounce_seconds + 30)
@@ -119,7 +116,7 @@ Lê as últimas 40 mensagens (ordenar por **id**, não por timestamp; várias ms
 
 ## Variante simulador (Fase 1)
 
-`AiPlaygroundRunner` faz **o mesmo fluxo** com estas diferenças:
+O simulador faz **o mesmo fluxo** com estas diferenças:
 - Estado vive numa `session` (JSON de `messages`, `custom_fields`, `status`, `turns_count`, `opening_completed`, `classification`, `sent_media_ids`, `phone` fake).
 - Etapa A roda inline (sem debounce).
 - Se `session.status != active`: adiciona evento "conversa encerrada, clique reiniciar".

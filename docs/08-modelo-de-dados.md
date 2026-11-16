@@ -1,8 +1,6 @@
 # 08. Modelo de dados (proposto para o projeto novo)
 
-> **Decisão (2026-11-02): banco = MongoDB, cache/filas = Redis.** O SQL abaixo continua como referência do modelo vindo do Laravel; ao implementar, cada tabela vira uma collection (ODM: Mongoose). Redis cuida de debounce, locks e BullMQ.
-
-~~Postgres. Use Prisma ou Drizzle~~; abaixo em SQL para ficar neutro. Origem: migrations em `referencia-laravel/database/migrations/`.
+> **Decisão (2026-11-02): banco = MongoDB, cache/filas = Redis.** O SQL abaixo fica como referência do modelo; ao implementar, cada tabela vira uma collection (ODM: Mongoose). Redis cuida de debounce, locks e BullMQ.
 
 **Fase 1** precisa só de: `kits`, `agents`, `playground_sessions`, `ai_usages`, `ai_agent_logs`, `ai_models`.
 **Fase 2** adiciona: `channels`, `contacts`, `pipeline_stages`, `chats`, `messages`, `conversations`.
