@@ -201,6 +201,11 @@
     ],
     "max_turns": 20,
     "debounce_seconds": 8,
+    "bubble_delay": {
+      "min_seconds": 1,
+      "max_seconds": 1,
+      "chars_per_second": 20
+    },
     "required_fields": [
       {
         "key": "situacao_trabalho",
