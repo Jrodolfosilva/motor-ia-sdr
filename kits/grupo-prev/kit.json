@@ -144,7 +144,7 @@
           {
             "kind": "text",
             "enabled": true,
-            "text": "Olá, mamãe! Seja muito bem-vinda à *PrevX Assessoria Maternidade*!\n\nVocê está em boas mãos! Já ajudamos *mais de 15 mil mães*, com uma taxa de aprovação de *98,7%* e *mais de 13 anos* de experiência no mercado."
+            "text": "Olá, mamãe! Seja muito bem-vinda à *PrevX Assessoria Maternidade*!\n\nJá ajudamos *mais de 15 mil mães* e *mais de 13 anos* de experiência no mercado."
           },
           {
             "kind": "text",
@@ -179,12 +179,12 @@
         {
           "kind": "text",
           "enabled": true,
-          "text": "Deixa eu te explicar como funciona 😊 O salário-maternidade é calculado com base nas suas contribuições ao INSS. A gente faz a análise do seu caso e encaminha o pedido - quando for concedido, eu te aviso o local, a data e o horário pra você sacar no banco mais próximo."
+          "text": "Perfeito😊, deixa eu te explicar rapidinho: o valor do benefício depende das suas contribuições ao INSS. A gente cuida da análise e faz o pedido. Quando for aprovado, te mando o dia, a hora e o banco mais próximo pro saque."
         },
         {
           "kind": "text",
           "enabled": true,
-          "text": "O valor costuma ficar entre R$ 5.600 e R$ 15.900, conforme as suas contribuições. E fica tranquila: você não paga nada antes - nossos honorários só são cobrados se o benefício for concedido 🙏🏼 Pra fazer a análise completa, vou precisar de alguns documentos seus."
+          "text": "O valor costuma ficar entre R$ 5.600 e R$ 15.900, conforme as suas contribuições. 🙏🏼 Pra fazer a análise completa, vou precisar de alguns documentos seus."
         }
       ]
     },
