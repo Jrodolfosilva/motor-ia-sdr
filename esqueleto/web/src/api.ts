@@ -199,6 +199,7 @@ export interface RequiredDocument {
   condition?: string | null;
   why?: string | null;
   insist?: number | null;
+  essential?: boolean | null;
   followup?: FollowUpStep[] | null;
 }
 

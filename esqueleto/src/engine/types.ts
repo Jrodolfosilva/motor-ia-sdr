@@ -45,6 +45,12 @@ export interface RequiredDocument {
   why?: string | null;
   /** Quantas vezes a IA reforça e pede de novo antes de deixar para a equipe. Vazio = padrão (2). */
   insist?: number | null;
+  /**
+   * Essencial: sem ele não dá pra seguir. Resposta errada, vaga, sem sentido ou recusa → a IA pede de novo
+   * sempre (nunca libera). Só passa para o próximo documento se a lead disser que manda depois ou que não
+   * tem no momento: aí fica pendente (a IA avisa que é essencial) e é lembrado no fim.
+   */
+  essential?: boolean | null;
   /** Follow-up se a lead parar de responder neste documento. Vazio = sequência padrão do agente. */
   followup?: FollowUpStep[] | null;
 }

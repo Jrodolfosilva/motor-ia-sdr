@@ -16,6 +16,14 @@ export const PENDING_LABEL: Record<PendingStatus, string> = {
   recusou: 'recusou informar',
 };
 
+/** Item essencial (documento): só "depois"/"não tem agora" deixam seguir; o resto nunca libera. */
+const isEssential = (item: { key: string; essential?: boolean | null } | undefined) => !!item?.essential;
+
+/** Situação que vale para o item: em item essencial, "não tem" (no momento) conta como "depois". */
+export function effectiveStatus(item: { key: string; essential?: boolean | null } | undefined, status: PendingStatus): PendingStatus {
+  return isEssential(item) && status === 'nao_tem' ? 'depois' : status;
+}
+
 /** Vezes que a IA insiste no item com esse tipo de resposta. */
 export function insistFor(item: { insist?: number | null } | undefined, status: PendingStatus): number {
   if (status === 'depois' || item?.insist == null || !Number.isFinite(item.insist)) return DEFAULT_INSIST[status];
@@ -65,16 +73,36 @@ export class RequiredFieldsStatus {
     return p && !filled(this.known[key]) ? p : null;
   }
 
+  /** Situação da pendência que vale para o item (ver effectiveStatus). null = sem pendência. */
+  pendingStatus(key: string): PendingStatus | null {
+    const p = this.pendingFor(key);
+    return p ? effectiveStatus(this.item(key), p.status) : null;
+  }
+
+  /** Item essencial com resposta que não serve (errada, vaga, recusa): a IA pede de novo, sem limite. */
+  private alwaysInsist(key: string): boolean {
+    const st = this.pendingStatus(key);
+    return !!st && st !== 'depois' && isEssential(this.item(key));
+  }
+
   /** Pendência que já não trava o roteiro (a IA já insistiu o quanto devia). */
   isPendingResolved(key: string): boolean {
     const p = this.pendingFor(key);
-    return !!p && p.count > insistFor(this.item(key), p.status);
+    if (!p || this.alwaysInsist(key)) return false;
+    return p.count > insistFor(this.item(key), this.pendingStatus(key)!);
   }
 
   /** Reforços que ainda restam antes de liberar o item (0 = já liberado). */
   insistLeft(key: string): number {
     const p = this.pendingFor(key);
-    return p ? Math.max(0, insistFor(this.item(key), p.status) + 1 - p.count) : 0;
+    if (!p) return 0;
+    if (this.alwaysInsist(key)) return Number.POSITIVE_INFINITY;
+    return Math.max(0, insistFor(this.item(key), this.pendingStatus(key)!) + 1 - p.count);
+  }
+
+  /** Documento essencial? */
+  essential(key: string): boolean {
+    return isEssential(this.item(key));
   }
 
   item(key: string): RequiredField | RequiredDocument | undefined {

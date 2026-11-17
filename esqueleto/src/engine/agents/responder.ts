@@ -48,18 +48,20 @@ const PENDING_TAG = { depois: 'DEPOIS', nao_sabe: 'NÃO SABE', vaga: 'RESPOSTA V
 function pendingLine(status: RequiredFieldsStatus, key: string): string | null {
   const p = status.pendingFor(key);
   if (!p) return null;
-  const tag = PENDING_TAG[p.status];
+  const st = status.pendingStatus(key)!;
+  const tag = PENDING_TAG[st];
   const said = p.detail ? ` (ela disse: "${p.detail}")` : '';
   if (status.isPendingResolved(key)) return `[${tag} - LIBERADO]${said}`;
-  if (p.status === 'depois') return `[${tag}]${said}`;
+  if (st === 'depois') return status.essential(key) ? `[DEPOIS - ESSENCIAL PENDENTE]${said}` : `[${tag}]${said}`;
+  if (status.essential(key)) return `[${tag} - ESSENCIAL, PEÇA DE NOVO]${said}`;
   const left = status.insistLeft(key);
   return `[${tag} - REFORCE E PEÇA DE NOVO${left > 1 ? '' : ', última tentativa'}]${said}`;
 }
 
 /** Orientação para reforçar um item sem resposta válida: por que precisamos + como conseguir. */
 function insisting(status: RequiredFieldsStatus, key: string): boolean {
-  const p = status.pendingFor(key);
-  return !!p && p.status !== 'depois' && !status.isPendingResolved(key);
+  const st = status.pendingStatus(key);
+  return !!st && st !== 'depois' && !status.isPendingResolved(key);
 }
 
 function insistInfo(status: RequiredFieldsStatus, key: string, why?: string | null, help?: string | null): string {
@@ -184,6 +186,7 @@ ${lines}`);
         d.accepted.length ? `serve: ${d.accepted.join(', ')}` : null,
         d.validates?.length ? `comprova: ${d.validates.map((k) => agent.required_fields.find((f) => f.key === k)?.label ?? k).join('; ')}` : null,
         d.condition ? `pedir só se: ${d.condition}` : null,
+        d.essential ? 'ESSENCIAL: sem ele não dá pra seguir com o pedido. Enquanto ele faltar, NÃO peça nenhum outro documento (a não ser que ela diga que vai mandar depois ou que não tem no momento).' : null,
         `peça algo como: "${d.request_message}"`,
         d.how_to_get ? `se ela não souber onde conseguir ou não tiver, explique: ${d.how_to_get}` : null,
       ].filter(Boolean);
@@ -204,6 +207,8 @@ ${lines}`);
       '- [RECUSOU]: com calma e sem pressão, explique por que é necessário e pergunte de novo.',
       '- Mensagem sem sentido ou que não responde a pergunta: peça de novo com gentileza, reformulando.',
       '- [DEPOIS]: combine com leveza ("sem problema, me manda quando puder") e siga com os outros itens; não peça de novo enquanto houver outros itens pra resolver.',
+      '- [... - ESSENCIAL, PEÇA DE NOVO]: ela mandou outra coisa, algo que não serve, sem sentido ou não quis mandar. NÃO siga para outro documento e NÃO diga "sem problema, vamos seguir". Diga com clareza e gentileza que esse documento é essencial, que sem ele não dá pra dar sequência no pedido, oriente como conseguir e peça de novo.',
+      '- [DEPOIS - ESSENCIAL PENDENTE]: ela disse que manda depois ou que não tem no momento. Responda numa mensagem só: tudo bem, esse documento é essencial e fica pendente pra ela mandar assim que puder, e já peça o próximo documento. Não peça esse de novo enquanto houver outros itens.',
       '- [LIBERADO]: já insistimos o suficiente. Não peça mais esse item (a equipe resolve depois) e siga com o próximo.',
       onlyDeferredLeft ? '- AGORA só faltam itens [DEPOIS]: lembre UMA vez, com gentileza, do que ficou de mandar, e diga que fica no aguardo.' : null,
     ].filter(Boolean).join('\n'));

@@ -111,5 +111,31 @@ describe('pendência com insistência', () => {
 
   it('insist do item troca o padrão', () => {
     expect(st({ parto: { status: 'nao_sabe', count: 1 } }).isPendingResolved('parto')).toBe(true);
+  });});
+
+describe('documento essencial', () => {
+  const docs = [
+    { key: 'ctps', label: 'CTPS', file_types: ['image' as const], accepted: ['print'], request_message: 'Manda a CTPS?', essential: true, insist: 0 },
+    { key: 'ultrassom', label: 'Ultrassom', file_types: ['image' as const], accepted: ['ultrassom'], request_message: 'Manda o ultrassom?' },
+  ];
+  type S = 'depois' | 'nao_sabe' | 'vaga' | 'nao_tem' | 'recusou';
+  const st = (status: S, count: number) => new RequiredFieldsStatus([], {}, docs, { pending: { ctps: { status, count } } });
+
+  it('arquivo errado / vago / recusa: nunca libera, segue pedindo a CTPS', () => {
+    for (const s of ['vaga', 'nao_sabe', 'recusou'] as const) {
+      expect(st(s, 10).isPendingResolved('ctps')).toBe(false);
+      expect(st(s, 10).missingDocuments()[0].key).toBe('ctps');
+    }
+  });
+
+  it('"não tenho no momento" conta como "depois": fica pendente e libera como o depois', () => {
+    expect(st('nao_tem', 1).pendingStatus('ctps')).toBe('depois');
+    expect(st('nao_tem', 1).isPendingResolved('ctps')).toBe(false);
+    expect(st('nao_tem', 2).isPendingResolved('ctps')).toBe(true);
+  });
+
+  it('documento comum continua liberando pelo padrão', () => {
+    const s = new RequiredFieldsStatus([], {}, docs, { pending: { ultrassom: { status: 'nao_tem', count: 2 } } });
+    expect(s.isPendingResolved('ultrassom')).toBe(true);
   });
 });

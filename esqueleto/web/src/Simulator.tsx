@@ -29,6 +29,13 @@ const PENDING_BADGE: Record<PendingStatus, { text: string; tone: string }> = {
 const DEFAULT_INSIST: Record<PendingStatus, number> = { depois: 1, nao_sabe: 2, vaga: 2, nao_tem: 1, recusou: 1 };
 const insistFor = (item: { insist?: number | null } | undefined, st: PendingStatus) =>
   st === 'depois' || item?.insist == null ? DEFAULT_INSIST[st] : Math.max(0, Math.floor(item.insist));
+type PendItem = { insist?: number | null; essential?: boolean | null };
+/** Documento essencial: "não tem" conta como "depois"; errado/vago/recusa nunca libera. */
+const isReleased = (item: PendItem | undefined, p: { status: PendingStatus; count: number }) => {
+  const st = item?.essential && p.status === 'nao_tem' ? 'depois' : p.status;
+  if (item?.essential && st !== 'depois') return false;
+  return p.count > insistFor(item, st);
+};
 
 const Q_LABEL: Record<QState, { text: string; tone: string }> = {
   missing: { text: 'falta', tone: 'neutral' },
@@ -402,9 +409,9 @@ export default function Simulator({ agentKey }: { agentKey: string }) {
   );
 }
 
-function PendBadge({ p, item }: { p: { status: PendingStatus; count: number }; item?: { insist?: number | null } }) {
+function PendBadge({ p, item }: { p: { status: PendingStatus; count: number }; item?: PendItem }) {
   const b = PENDING_BADGE[p.status];
-  const released = p.count > insistFor(item, p.status);
+  const released = isReleased(item, p);
   return (
     <span className={`badge ${b.tone}`} title={released ? 'Não trava mais o roteiro: vai como pendência para a equipe' : `${p.count}x`}>
       {b.text}{p.count > 1 ? ` · ${p.count}x` : ''}{released ? ' · liberado' : ''}

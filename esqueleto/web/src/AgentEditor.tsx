@@ -630,6 +630,15 @@ export default function AgentEditor({ agentKey, onSaved }: { agentKey: string; o
                       hint="Variações aceitas. Ex: ultrassom / cartão da gestante / teste de farmácia"
                     />
                     <Area label="Como pedir" rows={2} value={d.request_message} onChange={(v) => upd({ request_message: v })} />
+                    <div className="f">
+                      <span>Essencial</span>
+                      <div className="chips">
+                        <label className={`chip${d.essential ? ' on' : ''}`}>
+                          <input type="checkbox" checked={!!d.essential} onChange={(e) => upd({ essential: e.target.checked || null })} /> Sem ele não dá pra seguir
+                        </label>
+                      </div>
+                      <small>Arquivo errado, resposta vaga ou recusa: a IA pede de novo sempre, sem pular para o próximo documento. Só segue se ela disser que manda depois ou que não tem no momento (fica pendente). Ignora "Quantas vezes insistir".</small>
+                    </div>
                     <Area
                       label="Onde / como conseguir"
                       rows={3}
