@@ -137,14 +137,14 @@
       "file_fail_action": "reply"
     },
     "reception": {
-      "append_state_presence": true,
+      "append_state_presence": false,
       "form": {
         "after": "continue",
         "messages": [
           {
             "kind": "text",
             "enabled": true,
-            "text": "Olá, mamãe! Seja muito bem-vinda à *PrevX Assessoria Maternidade*!\n\nVocê está em boas mãos! Já ajudamos *mais de 15 mil mães*, com uma taxa de aprovação de *98,7%* e *mais de 13 anos* de experiência no mercado.\n\nRecebemos suas respostas do formulário, vou te enviar abaixo para verificar seu direito ao *Auxílio-Maternidade*."
+            "text": "Olá, mamãe! Seja muito bem-vinda à *PrevX Assessoria Maternidade*!\n\nVocê está em boas mãos! Já ajudamos *mais de 15 mil mães*, com uma taxa de aprovação de *98,7%* e *mais de 13 anos* de experiência no mercado."
           },
           {
             "kind": "text",
@@ -708,7 +708,7 @@
     ],
     "form_confirmation": {
       "enabled": true,
-      "intro": "{nome}, pode confirmar se os dados estão corretos?",
+      "intro": "Pode confirmar se os dados estão corretos?",
       "outro": null
     }
   }
