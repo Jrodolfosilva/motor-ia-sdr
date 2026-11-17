@@ -139,8 +139,7 @@ app.get('/t/:token', wrap(async (req, res) => {
   const { raw } = await agentFor(key);
   const name = String(raw.agent?.name || raw.kit?.name || 'Atendimento');
   res.type('html').send(publicPage(`Teste: ${name}`,
-    `<h1>Teste o atendimento com IA</h1><p>Converse como se fosse o cliente: texto, áudio, foto ou PDF.</p>
-<div id="hub-ia-simulador"></div>
+    `<div id="hub-ia-simulador"></div>
 <script src="/embed/hub-ia-simulador.js" data-token="${esc(token)}"></script>`));
 }));
 

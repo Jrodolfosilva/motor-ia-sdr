@@ -829,8 +829,8 @@
     },
     "test_lead": {
       "cold_message": "Olá, gostaria de mais informações sobre salário-maternidade",
-      "name": "Kelly Silva",
-      "phone": "5533999216260",
+      "name": "Mãe",
+      "phone": "5511999990000",
       "form_answers": {
         "situacao_trabalho": "Estou desempregada!",
         "data_saida_ctps": "07/12/2025",
