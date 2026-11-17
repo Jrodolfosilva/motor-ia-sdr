@@ -370,7 +370,8 @@
             "message": "Oi, {nome}! Falta só esse comprovante pra sua análise ficar completa 🙏🏼 Me manda quando puder.",
             "is_active": true
           }
-        ]
+        ],
+        "essential": true
       }
     ],
     "classification_labels": [
