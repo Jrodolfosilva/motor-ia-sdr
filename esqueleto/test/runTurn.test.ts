@@ -256,6 +256,22 @@ describe('runTurn', () => {
       expect(texts(s)).not.toContain('NÃO DEVIA');
     });
 
+    it('lead de volume com "continue": recepção e já a 1ª pergunta do roteiro, pronta (sem a IA)', async () => {
+      const cont = { ...reception, volume: { after: 'continue' as const, messages: [{ kind: 'text' as const, text: 'Vou te fazer 3 perguntinhas, tá?' }] } };
+      const s = createSession('a', '5511999990000');
+      appendUser(s, { type: 'text', body: 'Olá, gostaria de mais informações sobre salário-maternidade' });
+      await runTurn(buildSimulatorContext(s, agent({ reception: cont }), fakeLlm({ responder: 'Claro! Pra eu ver se você tem direito, quando saiu?' }), noVision));
+      expect(texts(s)).toEqual(['Vou te fazer 3 perguntinhas, tá?', 'Quando saiu?']);
+    });
+
+    it('lead de volume com "continue" que já pergunta algo: a IA responde', async () => {
+      const cont = { ...reception, volume: { after: 'continue' as const, messages: [{ kind: 'text' as const, text: 'Vou te fazer 3 perguntinhas, tá?' }] } };
+      const s = createSession('a', '5511999990000');
+      appendUser(s, { type: 'text', body: 'quanto eu recebo?' });
+      await runTurn(buildSimulatorContext(s, agent({ reception: cont }), fakeLlm({ responder: 'Depende das contribuições. Quando saiu?' }), noVision));
+      expect(texts(s)).toEqual(['Vou te fazer 3 perguntinhas, tá?', 'Depende das contribuições. Quando saiu?']);
+    });
+
     it('lead de formulário: texto + áudio e a IA segue no mesmo turno sabendo o que o áudio disse', async () => {
       const s = createSession('a', '5511999990000', { data_saida_ctps: '01/08/2026' });
       let responderSystem = '';

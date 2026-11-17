@@ -1,7 +1,7 @@
 // Orquestrador único. Mesmo código para simulador (Fase 1) e WhatsApp (Fase 2):
 // só mudam os adapters em TurnContext. Ver docs/02-fluxo-do-turno.md.
 import type {
-  ChatMessage, ClassificationLabel, HandoffReason, MediaAnalysis, ReceptionMessage, StoredMessage, TurnContext,
+  Agent, ChatMessage, ClassificationLabel, HandoffReason, MediaAnalysis, ReceptionMessage, StoredMessage, TurnContext,
 } from './types';
 import { filled, PENDING_LABEL, RequiredFieldsStatus } from './rules/requiredFields';
 import { rulesMatch } from './rules/classificationRules';
@@ -224,6 +224,14 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
       }
     }
 
+    // 8a. lead sem dados, logo após a recepção: a 1ª pergunta do roteiro sai pronta (texto do kit),
+    //     sem a IA reescrever ("Claro! Pra eu ver se…"). Só se a lead não fez uma pergunta própria.
+    const firstQuestion = coldOpeningQuestion(agent, known, progress(), fresh, isCold && turnsCount === 1 && isFirstResponderTurn && !notices.length);
+    if (firstQuestion) {
+      await sendBubbles(ctx, [firstQuestion], lastSeenInboundId);
+      return;
+    }
+
     // 8b. módulo de EXPLICAÇÃO (fixo, uma vez): quando as perguntas-gatilho fecham, explica o
     //     benefício antes de pedir documentos. Depois: IA pede o 1º documento ou espera o lead.
     //     A explicação sai NO MEIO da resposta da IA: [reação ao que ela disse] → explicação → [pedido do documento].
@@ -270,6 +278,22 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
   // 10. resposta pronta do FAQ (texto/áudio/vídeo da equipe) e mídia da biblioteca
   if (faqToSend) await sendFaqReply(ctx, faqToSend.index, faqToSend.pick);
   await sendLibraryMedia(ctx, requestedMedia);
+}
+
+/**
+ * 1ª pergunta do roteiro para o lead sem dados, logo depois da recepção (cenário "volume" com after
+ * "continue"). null = deixa a IA responder: a lead perguntou algo, mandou mídia, ou já respondeu tudo.
+ */
+export function coldOpeningQuestion(
+  agent: Agent, known: Record<string, unknown>, progress: ConstructorParameters<typeof RequiredFieldsStatus>[3],
+  fresh: StoredMessage[], eligible: boolean,
+): string | null {
+  if (!eligible) return null;
+  const scenario = receptionFor(agent, 'volume');
+  if (!scenario.messages.length || scenario.after !== 'continue') return null;
+  if (fresh.some((m) => m.type !== 'text' || m.body.includes('?'))) return null;
+  const q = new RequiredFieldsStatus(agent.required_fields, known, agent.required_documents, progress).missingQuestions()[0];
+  return q?.question?.trim() || null;
 }
 
 /**
