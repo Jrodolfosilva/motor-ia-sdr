@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeDuration, toMonths } from '../src/engine/rules/duration';
-import { monthsSinceDate, parseDate, rulesMatch } from '../src/engine/rules/classificationRules';
+import { monthsBetween, monthsSinceDate, parseDate, rulesMatch } from '../src/engine/rules/classificationRules';
 import { RequiredFieldsStatus } from '../src/engine/rules/requiredFields';
 import { inState, isNoiseReply, splitIntoBubbles, stateFor } from '../src/engine/rules/misc';
 import { buildHistory } from '../src/engine/runTurn';
@@ -137,5 +137,31 @@ describe('documento essencial', () => {
   it('documento comum continua liberando pelo padrão', () => {
     const s = new RequiredFieldsStatus([], {}, docs, { pending: { ultrassom: { status: 'nao_tem', count: 2 } } });
     expect(s.isPendingResolved('ultrassom')).toBe(true);
+  });
+});
+
+describe('mãe de guia: meses da saída até o parto', () => {
+  const known = { data_saida_ctps: '07/12/2025', data_parto: 'ainda não nasceu, previsão 12/03/2027' };
+  it('conta os meses entre duas datas do perfil', () => {
+    expect(monthsBetween('07/12/2025', '12/03/2027')).toBe(15);
+    expect(monthsBetween('15/01/2026', '10/01/2027')).toBe(11);
+    expect(monthsBetween('15/01/2026', 'sem data')).toBeNull();
+  });
+  it('regra months_to_field_*', () => {
+    expect(rulesMatch([{ field: 'data_saida_ctps', operator: 'months_to_field_gte', value: 12, to_field: 'data_parto' }], known)).toBe(true);
+    expect(rulesMatch([{ field: 'data_saida_ctps', operator: 'months_to_field_lt', value: 12, to_field: 'data_parto' }], known)).toBe(false);
+    expect(rulesMatch([{ field: 'data_saida_ctps', operator: 'months_to_field_gte', value: 12 }], known)).toBe(false);
+  });
+  it('pergunta condicional (ask_if) só entra quando a regra bate', () => {
+    const fields = [
+      { key: 'data_saida_ctps', label: 'Saída', question: 'Quando saiu?' },
+      { key: 'data_parto', label: 'Parto', question: 'Quando nasce?' },
+      { key: 'seguro_desemprego', label: 'Seguro', question: 'Recebeu seguro-desemprego?',
+        ask_if: [{ field: 'data_saida_ctps', operator: 'months_to_field_gte' as const, value: 12, to_field: 'data_parto' }] },
+    ];
+    expect(new RequiredFieldsStatus(fields, known).missingQuestions().map((f) => f.key)).toEqual(['seguro_desemprego']);
+    const dentro = { data_saida_ctps: '07/12/2025', data_parto: 'ainda não nasceu, previsão 12/09/2026' };
+    expect(new RequiredFieldsStatus(fields, dentro).isComplete()).toBe(true);
+    expect(new RequiredFieldsStatus(fields, {}).missingQuestions().map((f) => f.key)).toEqual(['data_saida_ctps', 'data_parto']);
   });
 });

@@ -172,7 +172,8 @@
       "trigger_fields": [
         "situacao_trabalho",
         "data_saida_ctps",
-        "data_parto"
+        "data_parto",
+        "seguro_desemprego"
       ],
       "messages": [
         {
@@ -184,6 +185,77 @@
           "kind": "text",
           "enabled": true,
           "text": "O valor costuma ficar entre R$ 5.600 e R$ 15.900, conforme as suas contribuições. 🙏🏼 Pra fazer a análise completa, vou precisar de alguns documentos seus."
+        }
+      ],
+      "variants": [
+        {
+          "label": "Mãe de guia (sem seguro-desemprego)",
+          "when": [
+            {
+              "field": "data_parto",
+              "operator": "contains_any",
+              "value": [
+                "nao nasceu",
+                "previs"
+              ]
+            },
+            {
+              "field": "data_saida_ctps",
+              "operator": "months_to_field_gte",
+              "value": 12,
+              "to_field": "data_parto"
+            },
+            {
+              "field": "seguro_desemprego",
+              "operator": "not_contains_any",
+              "value": [
+                "sim"
+              ]
+            }
+          ],
+          "messages": [
+            {
+              "kind": "text",
+              "enabled": true,
+              "text": "Deixa eu te explicar o seu caso 😊 O INSS dá um prazo de *1 ano* contado da saída do último emprego até o *nascimento do bebê* - e, pelas datas que você me passou, esse prazo acaba antes do parto."
+            },
+            {
+              "kind": "text",
+              "enabled": true,
+              "text": "Mas fica tranquila, tem um caminho: pela regra atual do INSS, fazendo *1 contribuição* antes do bebê nascer você volta a ter direito ao benefício. A guia é de *R$ 178,31* e, dando tudo certo, o benefício fica em média *R$ 6.200* 🙏🏼 Nossa equipe te orienta certinho sobre a guia e a data de pagamento. Pra fazer a análise completa, vou precisar de alguns documentos seus."
+            }
+          ]
+        },
+        {
+          "label": "Mãe de guia (2 anos ou mais)",
+          "when": [
+            {
+              "field": "data_parto",
+              "operator": "contains_any",
+              "value": [
+                "nao nasceu",
+                "previs"
+              ]
+            },
+            {
+              "field": "data_saida_ctps",
+              "operator": "months_to_field_gte",
+              "value": 24,
+              "to_field": "data_parto"
+            }
+          ],
+          "messages": [
+            {
+              "kind": "text",
+              "enabled": true,
+              "text": "Deixa eu te explicar o seu caso 😊 O INSS dá um prazo de *1 ano* contado da saída do último emprego até o *nascimento do bebê* - e, pelas datas que você me passou, esse prazo acaba antes do parto."
+            },
+            {
+              "kind": "text",
+              "enabled": true,
+              "text": "Mas fica tranquila, tem um caminho: pela regra atual do INSS, fazendo *1 contribuição* antes do bebê nascer você volta a ter direito ao benefício. A guia é de *R$ 178,31* e, dando tudo certo, o benefício fica em média *R$ 6.200* 🙏🏼 Nossa equipe te orienta certinho sobre a guia e a data de pagamento. Pra fazer a análise completa, vou precisar de alguns documentos seus."
+            }
+          ]
         }
       ]
     },
@@ -287,6 +359,29 @@
           }
         ],
         "confirm_label": "Previsão do parto"
+      },
+      {
+        "key": "seguro_desemprego",
+        "label": "Se recebeu seguro-desemprego quando saiu do último emprego com carteira assinada. Salve só \"sim\" ou \"não\"",
+        "question": "Quando você saiu da empresa, recebeu seguro-desemprego?",
+        "confirm_question": "Você recebeu seguro-desemprego quando saiu, certo?",
+        "confirm_label": "Recebeu seguro-desemprego",
+        "why": "Quem recebeu seguro-desemprego tem um prazo maior pra pedir o salário-maternidade (até 2 anos da saída até o parto), então isso muda o caminho do seu caso.",
+        "help": "É o pagamento que vem por alguns meses depois de uma demissão sem justa causa (pela Caixa ou pelo app Carteira de Trabalho Digital, em Benefícios). Se não lembra, pode responder pelo que acha que foi.",
+        "ask_if": [
+          {
+            "field": "data_saida_ctps",
+            "operator": "months_to_field_gte",
+            "value": 12,
+            "to_field": "data_parto"
+          },
+          {
+            "field": "data_saida_ctps",
+            "operator": "months_to_field_lt",
+            "value": 24,
+            "to_field": "data_parto"
+          }
+        ]
       }
     ],
     "required_documents": [
@@ -398,7 +493,7 @@
       {
         "key": "elegivel_urgente",
         "label": "Elegível - Urgente",
-        "description": "Provável direito com prazo apertado: saída da carteira há 9 a 12 meses (período de graça acabando), bebê já nasceu, ou pedido anterior negado. Priorizar contato.",
+        "description": "Dentro do prazo (saída até o parto em menos de 12 meses), mas a saída foi há 9 a 12 meses: prazo apertado. Priorizar contato.",
         "outcome": "qualify",
         "rules": [
           {
@@ -410,32 +505,83 @@
             "field": "data_saida_ctps",
             "operator": "months_since_lt",
             "value": 12
+          },
+          {
+            "field": "data_saida_ctps",
+            "operator": "months_to_field_lt",
+            "value": 12,
+            "to_field": "data_parto"
           }
         ]
       },
       {
         "key": "elegivel",
         "label": "Elegível",
-        "description": "Provável direito dentro do prazo: desempregada com saída da carteira há menos de 9 meses, ou contribuinte (autônoma/MEI) com 10+ meses.",
+        "description": "Dentro do prazo: da saída do último emprego até o parto (ou previsão) são menos de 12 meses.",
         "outcome": "qualify",
         "rules": [
           {
             "field": "data_saida_ctps",
-            "operator": "months_since_lt",
-            "value": 9
+            "operator": "months_to_field_lt",
+            "value": 12,
+            "to_field": "data_parto"
+          }
+        ]
+      },
+      {
+        "key": "elegivel_seguro",
+        "label": "Elegível (seguro-desemprego)",
+        "outcome": "qualify",
+        "description": "Saída até o parto entre 12 e 24 meses, mas recebeu seguro-desemprego: prazo estendido para 24 meses.",
+        "rules": [
+          {
+            "field": "seguro_desemprego",
+            "operator": "contains_any",
+            "value": [
+              "sim"
+            ]
+          },
+          {
+            "field": "data_saida_ctps",
+            "operator": "months_to_field_lt",
+            "value": 24,
+            "to_field": "data_parto"
+          }
+        ]
+      },
+      {
+        "key": "mae_de_guia",
+        "label": "Mãe de guia",
+        "outcome": "qualify",
+        "description": "Gestante fora do prazo no parto (12+ meses da saída até o parto, ou 24+ com seguro-desemprego): pode pagar 1 contribuição antes do nascimento. Closer orienta a guia.",
+        "rules": [
+          {
+            "field": "data_parto",
+            "operator": "contains_any",
+            "value": [
+              "nao nasceu",
+              "previs"
+            ]
+          },
+          {
+            "field": "data_saida_ctps",
+            "operator": "months_to_field_gte",
+            "value": 12,
+            "to_field": "data_parto"
           }
         ]
       },
       {
         "key": "triagem_incompleta",
         "label": "Análise da equipe",
-        "description": "Saída da carteira há 12 meses ou mais (depende do histórico de contribuição), informação contraditória, recusas ou situação incomum. A equipe decide.",
+        "description": "Bebê já nasceu e a saída do emprego foi 12+ meses antes do nascimento (fora do prazo, sem guia possível), informação contraditória ou situação incomum. A equipe decide.",
         "outcome": "qualify",
         "rules": [
           {
             "field": "data_saida_ctps",
-            "operator": "months_since_gte",
-            "value": 12
+            "operator": "months_to_field_gte",
+            "value": 12,
+            "to_field": "data_parto"
           }
         ]
       },
@@ -542,6 +688,11 @@
           "id": "inelegivel",
           "name": "Inelegível",
           "color": "#6b7280"
+        },
+        {
+          "id": "mae_de_guia",
+          "name": "Mãe de guia",
+          "color": "#db2777"
         }
       ],
       "actions": {
@@ -626,6 +777,25 @@
             "ia_atendendo"
           ],
           "move_to": "pre_qualificado"
+        },
+        "classificado:elegivel_seguro": {
+          "move_to": "pre_qualificado",
+          "add_labels": [
+            "pronto_equipe"
+          ],
+          "remove_labels": [
+            "ia_atendendo"
+          ]
+        },
+        "classificado:mae_de_guia": {
+          "move_to": "pre_qualificado",
+          "add_labels": [
+            "pronto_equipe",
+            "mae_de_guia"
+          ],
+          "remove_labels": [
+            "ia_atendendo"
+          ]
         }
       }
     },

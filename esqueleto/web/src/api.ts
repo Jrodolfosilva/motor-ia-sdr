@@ -156,9 +156,9 @@ export interface BubbleDelay { min_seconds: number; max_seconds: number; chars_p
 
 export type RuleOperator =
   | 'present' | 'contains_any' | 'not_contains_any'
-  | 'gte_months' | 'lt_months' | 'months_since_gte' | 'months_since_lt';
+  | 'gte_months' | 'lt_months' | 'months_since_gte' | 'months_since_lt' | 'months_to_field_gte' | 'months_to_field_lt';
 
-export interface Rule { field: string; operator: RuleOperator; value?: unknown }
+export interface Rule { field: string; operator: RuleOperator; value?: unknown; to_field?: string | null }
 
 export interface ClassificationLabel {
   key: string;

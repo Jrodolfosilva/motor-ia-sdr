@@ -20,6 +20,11 @@ export interface RequiredField {
   insist?: number | null;
   /** Follow-up se a lead parar de responder nesta pergunta. Vazio = sequência padrão do agente. */
   followup?: FollowUpStep[] | null;
+  /**
+   * Pergunta condicional: só entra no roteiro quando TODAS estas regras batem com o que já se sabe
+   * (ex: seguro-desemprego só se a saída do emprego fica a 12+ meses do parto). Vazio = sempre.
+   */
+  ask_if?: Rule[] | null;
 }
 
 export type DocumentFileType = 'image' | 'pdf';
@@ -62,12 +67,17 @@ export type RuleOperator =
   | 'gte_months'
   | 'lt_months'
   | 'months_since_gte'
-  | 'months_since_lt';
+  | 'months_since_lt'
+  /** Meses entre a data de `field` e a data de `to_field` (ex: saída do emprego → parto). */
+  | 'months_to_field_gte'
+  | 'months_to_field_lt';
 
 export interface Rule {
   field: string;
   operator: RuleOperator;
   value?: unknown;
+  /** Segunda data, para months_to_field_*: conta os meses de `field` até `to_field`. */
+  to_field?: string | null;
 }
 
 export interface ClassificationLabel {
@@ -202,6 +212,18 @@ export interface ExplanationModule {
   after: 'wait' | 'continue';
   /** Dispara quando estas perguntas estiverem respondidas/confirmadas. Vazio = todas as perguntas. */
   trigger_fields: string[];
+  /**
+   * Explicações alternativas: a primeira cujas regras batem (todas) com os dados da lead substitui
+   * `messages` (ex: "mãe de guia" recebe a explicação da contribuição). Nenhuma bate = `messages`.
+   */
+  variants?: ExplanationVariant[] | null;
+}
+
+export interface ExplanationVariant {
+  /** Nome para o painel (ex: "Mãe de guia"). */
+  label?: string | null;
+  when: Rule[];
+  messages: ReceptionMessage[];
 }
 
 export interface Reception {

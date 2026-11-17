@@ -240,7 +240,7 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
     //     A explicação sai NO MEIO da resposta da IA: [reação ao que ela disse] → explicação → [pedido do documento].
     //     Uma chamada só: o responder escreve as duas partes separadas por EXPLANATION_MARK.
     let explanation: ExplanationState = 'off';
-    const exMsgs = explanationMessages(agent);
+    const exMsgs = explanationMessages(agent, known, ctx.now);
     if (exMsgs.length) {
       const now = await store.loadState();
       if (now.explanationSent) explanation = 'sent';

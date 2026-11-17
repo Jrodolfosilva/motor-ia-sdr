@@ -107,12 +107,12 @@ export function buildResponderPrompt(
   }
 
   if (explanation !== 'off') {
-    const lines = explanationMessages(agent).map((m, i) => `${i + 1}) ${receptionLine(m)}`).join('\n');
+    const lines = explanationMessages(agent, known, now).map((m, i) => `${i + 1}) ${receptionLine(m)}`).join('\n');
     const label = (k: string) => agent.required_fields.find((f) => f.key === k)?.label ?? k;
     if (explanation === 'pending') {
-      parts.push(`MÓDULO DE EXPLICAÇÃO: a explicação do benefício (como funciona, valores, por que precisamos dos documentos) é enviada AUTOMATICAMENTE assim que estas perguntas estiverem respondidas: ${explanationTriggerKeys(agent).map(label).join('; ')}. Até lá: NÃO faça pitch, NÃO fale de valores ou prazos de pagamento e NÃO peça documentos - siga com as perguntas que faltam. Se ela perguntar sobre valores, diga que já já explica tudo e volte à pergunta.`);
+      parts.push(`MÓDULO DE EXPLICAÇÃO: a explicação do benefício (como funciona, valores, por que precisamos dos documentos) é enviada AUTOMATICAMENTE assim que estas perguntas estiverem respondidas: ${explanationTriggerKeys(agent).filter((k) => status.fields.some((f) => f.key === k)).map(label).join('; ')}. Até lá: NÃO faça pitch, NÃO fale de valores ou prazos de pagamento e NÃO peça documentos - siga com as perguntas que faltam. Se ela perguntar sobre valores, diga que já já explica tudo e volte à pergunta.`);
     } else if (explanation === 'inline' || explanation === 'inline_wait' || explanation === 'just_sent') {
-      const msgs = explanationMessages(agent);
+      const msgs = explanationMessages(agent, known, now);
       const last = msgs.length ? receptionLine(msgs[msgs.length - 1]) : '';
       // primeiro documento que falta + para que ele serve (perguntas que ele comprova)
       const st = new RequiredFieldsStatus(agent.required_fields, known, agent.required_documents, progress);

@@ -41,6 +41,17 @@ export function monthsSinceDate(value: string, today: Date = new Date()): number
   return months;
 }
 
+/** Meses inteiros da data em `from` até a data em `to` (negativo se `to` vem antes). Sem data → null. */
+export function monthsBetween(from: unknown, to: unknown): number | null {
+  const a = typeof from === 'string' ? parseDate(from) : null;
+  const b = typeof to === 'string' ? parseDate(to) : null;
+  if (!a || !b) return null;
+  let months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+  if (b >= a && b.getDate() < a.getDate()) months -= 1;
+  if (b < a && b.getDate() > a.getDate()) months += 1;
+  return months;
+}
+
 export function monthsSince(value: string, today?: Date): number | null {
   return parseDate(value) === null ? toMonths(value) : monthsSinceDate(value, today);
 }
@@ -68,6 +79,8 @@ function conditionMatches(rule: Rule, known: Record<string, unknown>, today?: Da
     case 'lt_months': return s !== null && cmp(toMonths(s), rule.value, (a, b) => a < b);
     case 'months_since_gte': return s !== null && cmp(monthsSince(s, today), rule.value, (a, b) => a >= b);
     case 'months_since_lt': return s !== null && cmp(monthsSince(s, today), rule.value, (a, b) => a < b);
+    case 'months_to_field_gte': return !!rule.to_field && cmp(monthsBetween(v, known[rule.to_field]), rule.value, (a, b) => a >= b);
+    case 'months_to_field_lt': return !!rule.to_field && cmp(monthsBetween(v, known[rule.to_field]), rule.value, (a, b) => a < b);
     default: return false;
   }
 }

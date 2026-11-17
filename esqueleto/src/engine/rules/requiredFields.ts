@@ -1,3 +1,4 @@
+import { rulesMatch } from './classificationRules';
 import type { PendingItem, PendingStatus, RequiredDocument, RequiredField } from '../types';
 
 /**
@@ -55,12 +56,16 @@ export class RequiredFieldsStatus {
   private readonly confirmedKeys: Set<string>;
   public readonly pending: Record<string, PendingItem>;
 
+  /** Perguntas que valem para esta lead (as condicionais `ask_if` só entram quando batem). */
+  public readonly fields: RequiredField[];
+
   constructor(
-    public readonly fields: RequiredField[],
+    fields: RequiredField[],
     public readonly known: Record<string, unknown>,
     documents: RequiredDocument[] = [],
     progress: RoteiroProgress = {},
   ) {
+    this.fields = fields.filter((f) => !f.ask_if?.length || rulesMatch(f.ask_if, known));
     this.documents = documents;
     this.formKeys = new Set(progress.formKeys ?? []);
     this.confirmedKeys = new Set(progress.confirmedKeys ?? []);

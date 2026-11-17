@@ -141,3 +141,16 @@ describe('módulo de explicação', () => {
     expect(s.messages.filter((m) => m.role === 'assistant')).toHaveLength(0);
   });
 });
+
+describe('explicação alternativa (variante)', () => {
+  it('a 1ª variante cujas regras batem substitui a explicação padrão', async () => {
+    const { explanationMessages } = await import('../src/engine/reception');
+    const ex = explanation({
+      variants: [{ label: 'Mãe de guia', when: [{ field: 'data_saida_ctps', operator: 'months_since_gte', value: 12 }], messages: [{ kind: 'text', text: 'Tem um caminho: 1 contribuição antes do parto.' }] }],
+    });
+    const a = agent(ex);
+    const now = new Date(2026, 10, 17);
+    expect(explanationMessages(a, { data_saida_ctps: '01/01/2025' }, now).map((m) => m.text)).toEqual(['Tem um caminho: 1 contribuição antes do parto.']);
+    expect(explanationMessages(a, { data_saida_ctps: '01/08/2026' }, now)[0].text).toContain('Funciona assim');
+  });
+});

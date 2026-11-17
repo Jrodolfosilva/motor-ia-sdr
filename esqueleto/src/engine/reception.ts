@@ -6,6 +6,7 @@
 // Cada mensagem pode ser texto, áudio ou vídeo (gravados pela equipe).
 import type { Agent, ReceptionMessage, ReceptionScenario, TurnContext } from './types';
 import { inState, stateFor } from './rules/misc';
+import { rulesMatch } from './rules/classificationRules';
 import { sendBubbles } from './runTurn';
 
 export type ReceptionCase = 'volume' | 'form';
@@ -93,9 +94,12 @@ export function splitAroundExplanation(text: string): { before: string; after: s
   return { before: text.slice(0, i).trim(), after: text.slice(i + EXPLANATION_MARK.length).trim() };
 }
 
-export function explanationMessages(agent: Agent): ReceptionMessage[] {
+/** Mensagens da explicação para esta lead: a 1ª variante cujas regras batem, ou as padrão. */
+export function explanationMessages(agent: Agent, known: Record<string, unknown> = {}, now?: Date): ReceptionMessage[] {
   const ex = agent.explanation;
-  return ex?.enabled ? ex.messages.filter((m) => m && hasContent(m)) : [];
+  if (!ex?.enabled) return [];
+  const variant = (ex.variants ?? []).find((v) => v.messages?.some((m) => m && hasContent(m)) && rulesMatch(v.when, known, now));
+  return (variant ? variant.messages : ex.messages).filter((m) => m && hasContent(m));
 }
 
 /** Perguntas que precisam estar resolvidas para a explicação disparar. */
@@ -110,9 +114,11 @@ export function explanationTriggerKeys(agent: Agent): string[] {
  */
 export function explanationReady(
   agent: Agent,
-  status: { isSettled(k: string): boolean; isPendingResolved(k: string): boolean },
+  status: { fields: { key: string }[]; isSettled(k: string): boolean; isPendingResolved(k: string): boolean },
 ): boolean {
-  const keys = explanationTriggerKeys(agent);
+  // pergunta condicional que não vale para esta lead (ask_if) não segura a explicação
+  const conditional = new Set(agent.required_fields.filter((f) => f.ask_if?.length).map((f) => f.key));
+  const keys = explanationTriggerKeys(agent).filter((k) => !conditional.has(k) || status.fields.some((f) => f.key === k));
   if (!keys.length) return true;
   return keys.every((k) => status.isSettled(k) || status.isPendingResolved(k)) && keys.some((k) => status.isSettled(k));
 }

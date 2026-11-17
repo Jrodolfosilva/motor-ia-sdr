@@ -28,7 +28,7 @@ const SECTIONS: { id: Section; label: string; group?: string }[] = [
   { id: 'json', label: 'JSON bruto', group: 'Avançado' },
 ];
 
-const OPERATORS: { op: RuleOperator; label: string; value: 'none' | 'number' | 'list' }[] = [
+const OPERATORS: { op: RuleOperator; label: string; value: 'none' | 'number' | 'list' | 'between' }[] = [
   { op: 'present', label: 'está preenchido', value: 'none' },
   { op: 'contains_any', label: 'contém algum de', value: 'list' },
   { op: 'not_contains_any', label: 'não contém nenhum de', value: 'list' },
@@ -36,6 +36,8 @@ const OPERATORS: { op: RuleOperator; label: string; value: 'none' | 'number' | '
   { op: 'lt_months', label: '< N meses (duração)', value: 'number' },
   { op: 'months_since_gte', label: 'há ≥ N meses (data)', value: 'number' },
   { op: 'months_since_lt', label: 'há < N meses (data)', value: 'number' },
+  { op: 'months_to_field_gte', label: '≥ N meses até a data de…', value: 'between' },
+  { op: 'months_to_field_lt', label: '< N meses até a data de…', value: 'between' },
 ];
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
@@ -190,14 +192,20 @@ function RuleRow({ rule, fields, onChange, onRemove }: {
         onChange={(e) => {
           const op = e.target.value as RuleOperator;
           const kind = OPERATORS.find((o) => o.op === op)!.value;
-          const value = kind === 'none' ? undefined : kind === 'number' ? (typeof rule.value === 'number' ? rule.value : 0) : (Array.isArray(rule.value) ? rule.value : []);
-          onChange({ field: rule.field, operator: op, ...(value === undefined ? {} : { value }) });
+          const value = kind === 'none' ? undefined : kind === 'number' || kind === 'between' ? (typeof rule.value === 'number' ? rule.value : 0) : (Array.isArray(rule.value) ? rule.value : []);
+          onChange({ field: rule.field, operator: op, ...(value === undefined ? {} : { value }), ...(kind === 'between' ? { to_field: rule.to_field ?? '' } : {}) });
         }}
       >
         {OPERATORS.map((o) => <option key={o.op} value={o.op}>{o.label}</option>)}
       </select>
-      {meta.value === 'number' && (
+      {(meta.value === 'number' || meta.value === 'between') && (
         <input type="number" value={typeof rule.value === 'number' ? rule.value : ''} onChange={(e) => onChange({ ...rule, value: Number(e.target.value) })} />
+      )}
+      {meta.value === 'between' && (
+        <select value={rule.to_field ?? ''} onChange={(e) => onChange({ ...rule, to_field: e.target.value })} title="Até a data deste campo">
+          <option value="">(até o campo)</option>
+          {fields.map((f) => <option key={f} value={f}>{f}</option>)}
+        </select>
       )}
       {meta.value === 'list' && (
         <input
