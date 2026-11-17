@@ -117,7 +117,6 @@
   },
   "agent": {
     "name": "SDR PrevX",
-    "system_prompt_file": "system-prompt.md",
     "guardrails": {
       "rules": [
         "Assunto fora do escopo (outro benefício do INSS, outro assunto jurídico, política, religião, futebol, receitas, piadas): responda com gentileza em 1 frase que por aqui você cuida do salário-maternidade e, na mesma mensagem, volte à pergunta ou ao documento pendente.",
@@ -201,11 +200,6 @@
     ],
     "max_turns": 20,
     "debounce_seconds": 8,
-    "bubble_delay": {
-      "min_seconds": 1,
-      "max_seconds": 1,
-      "chars_per_second": 20
-    },
     "required_fields": [
       {
         "key": "situacao_trabalho",
@@ -334,7 +328,8 @@
             "message": "Oi, {nome}! Ainda dá tempo de seguir com o seu pedido 🙏🏼 Me manda o print da carteira quando puder.",
             "is_active": true
           }
-        ]
+        ],
+        "insist": null
       },
       {
         "key": "comprovante_gestacao",
@@ -713,6 +708,7 @@
       "enabled": true,
       "intro": "Pode confirmar se os dados estão corretos?",
       "outro": null
-    }
+    },
+    "system_prompt_file": "system-prompt.md"
   }
 }
