@@ -687,9 +687,7 @@
         "data_parto": "12/03/2027",
         "Já trabalhou registrada 1 ano antes?": "Sim, já trabalhei registrada 1 ano antes."
       },
-      "lead_kinds": [
-        "form"
-      ]
+      "lead_kinds": null
     },
     "followup_confirmation": [
       {
