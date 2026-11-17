@@ -472,36 +472,24 @@
     "crm": {
       "stages": [
         {
-          "id": "novo_contato",
-          "name": "Novo Contato"
+          "id": "indeterminado",
+          "name": "Indeterminado"
+        },
+        {
+          "id": "template_enviado",
+          "name": "Template enviado"
         },
         {
           "id": "em_atendimento",
-          "name": "Em Atendimento"
+          "name": "Em atendimento"
         },
         {
-          "id": "parou_interacao",
-          "name": "Parou Interação"
+          "id": "pre_qualificado",
+          "name": "Pré-qualificado"
         },
         {
-          "id": "qualificada",
-          "name": "Qualificada"
-        },
-        {
-          "id": "coleta_documentos",
-          "name": "Coleta de Documentos"
-        },
-        {
-          "id": "assinatura",
-          "name": "Assinatura"
-        },
-        {
-          "id": "fechado",
-          "name": "Fechado"
-        },
-        {
-          "id": "perdido",
-          "name": "Perdido"
+          "id": "sem_direito",
+          "name": "Sem direito"
         }
       ],
       "labels": [
@@ -558,16 +546,13 @@
       ],
       "actions": {
         "atendimento_iniciado": {
-          "move_to": "em_atendimento",
+          "move_to": "template_enviado",
           "add_labels": [
             "ia_atendendo"
           ]
         },
-        "perguntas_completas": {
-          "move_to": "qualificada"
-        },
-        "explicacao_enviada": {
-          "move_to": "coleta_documentos"
+        "lead_respondeu": {
+          "move_to": "em_atendimento"
         },
         "documento_recebido": {
           "add_labels": [
@@ -588,7 +573,7 @@
           ]
         },
         "classificado:elegivel_urgente": {
-          "move_to": "coleta_documentos",
+          "move_to": "pre_qualificado",
           "add_labels": [
             "pronto_equipe",
             "urgente"
@@ -598,7 +583,7 @@
           ]
         },
         "classificado:elegivel": {
-          "move_to": "coleta_documentos",
+          "move_to": "pre_qualificado",
           "add_labels": [
             "pronto_equipe"
           ],
@@ -612,10 +597,11 @@
           ],
           "remove_labels": [
             "ia_atendendo"
-          ]
+          ],
+          "move_to": "pre_qualificado"
         },
         "classificado:empregada": {
-          "move_to": "perdido",
+          "move_to": "sem_direito",
           "add_labels": [
             "empregada"
           ],
@@ -624,7 +610,7 @@
           ]
         },
         "classificado:inelegivel": {
-          "move_to": "perdido",
+          "move_to": "sem_direito",
           "add_labels": [
             "inelegivel"
           ],
@@ -638,10 +624,8 @@
           ],
           "remove_labels": [
             "ia_atendendo"
-          ]
-        },
-        "sem_resposta": {
-          "move_to": "parou_interacao"
+          ],
+          "move_to": "pre_qualificado"
         }
       }
     },

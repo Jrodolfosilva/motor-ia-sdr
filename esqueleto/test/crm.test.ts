@@ -57,6 +57,34 @@ const llm = (extract: Record<string, string>, fonte = 'conversa'): LlmProvider =
 describe('CRM / kanban', () => {
   const now = new Date(2026, 10, 2);
 
+  it('funil Bitrix: template enviado → em atendimento quando a lead responde → pré-qualificado ao pedir humano (com nota)', async () => {
+    const bitrix: CrmConfig = {
+      stages: [
+        { id: 'indeterminado', name: 'Indeterminado' }, { id: 'template', name: 'Template enviado' },
+        { id: 'atendimento', name: 'Em atendimento' }, { id: 'pre', name: 'Pré-qualificado' },
+      ],
+      labels: [],
+      actions: {
+        atendimento_iniciado: { move_to: 'template' },
+        lead_respondeu: { move_to: 'atendimento' },
+        passou_para_equipe: { move_to: 'pre' },
+      },
+    };
+    const s = createSession('a', '5511999990000');
+    const turn = async (body: string) => {
+      appendUser(s, { type: 'text', body });
+      await runTurn({ ...buildSimulatorContext(s, agent({ crm: bitrix }), llm({}), noVision), now });
+    };
+    await turn('oi');
+    expect(s.crm.stageId).toBe('template');
+    await turn('tudo bem');
+    expect(s.crm.stageId).toBe('atendimento');
+    const ctx = buildSimulatorContext(s, agent({ crm: bitrix }), llm({}), noVision);
+    await intake(ctx, appendUser(s, { type: 'text', body: 'quero falar com atendente' }), false);
+    expect(s.crm.stageId).toBe('pre');
+    expect(s.crm.history.at(-1)?.note).toBe('Lead pediu atendimento humano.');
+  });
+
   it('move o card e mexe nas etiquetas nos marcos do atendimento', async () => {
     const s = createSession('a', '5511999990000');
     const turn = async (body: string, l: LlmProvider, extra: Partial<Parameters<typeof appendUser>[1]> = {}) => {

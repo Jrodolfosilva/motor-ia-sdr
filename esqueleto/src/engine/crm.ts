@@ -16,6 +16,7 @@ export interface CrmEventDef {
 /** Marcos fixos. Classificação é dinâmica: "classificado:<key>" para cada rótulo do agente. */
 export const CRM_EVENTS: CrmEventDef[] = [
   { key: 'atendimento_iniciado', stage: '1. Recepção', label: 'Atendimento iniciado', description: 'A IA respondeu a primeira mensagem da lead.' },
+  { key: 'lead_respondeu', stage: '1. Recepção', label: 'Lead respondeu', description: 'A lead respondeu pela primeira vez depois da recepção/template (lead de formulário: depois da confirmação dos dados).' },
   { key: 'perguntas_completas', stage: '2. Perguntas', label: 'Dados principais confirmados', description: 'As perguntas-gatilho da Explicação (ou todas, sem o módulo) respondidas ou confirmadas.' },
   { key: 'explicacao_enviada', stage: '3. Explicação', label: 'Explicação enviada', description: 'O módulo de explicação saiu; a IA começa a pedir documentos.' },
   { key: 'documento_recebido', stage: '4. Documentos', label: 'Documento recebido', description: 'Cada documento do roteiro que chegar (dispara uma vez por documento).' },

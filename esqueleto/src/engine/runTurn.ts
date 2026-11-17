@@ -115,6 +115,9 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
     m.type === 'video' || (m.type === 'audio' && !m.transcript)
     || ((m.type === 'image' || m.type === 'document') && (!m.aiAnalysis || 'failed' in m.aiAnalysis)));
 
+  // lead respondeu depois que o atendimento já falou (recepção/template ou 1ª pergunta)
+  if (turnsCount > 1 && fresh.length) await fireCrm(ctx, 'lead_respondeu');
+
   // 5. recepção por cenário (texto/áudio/vídeo fixos; sempre sai inteira, sem abortar)
   const isCold = !new RequiredFieldsStatus(agent.required_fields, known, agent.required_documents).hasAnyKnownData();
   // abertura ativa: lead de formulário que ainda não escreveu nada → a IA puxa a conversa
@@ -401,6 +404,15 @@ async function sendLibraryMedia(ctx: TurnContext, ids: string[]): Promise<void> 
 // Saídas (docs/07)
 // ---------------------------------------------------------------------------
 
+/** Anotação do card quando a conversa vai para a equipe sem classificação. */
+const HANDOFF_NOTE: Partial<Record<HandoffReason, string>> = {
+  handoff_keyword: 'Lead pediu atendimento humano.',
+  max_turns_exceeded: 'Conversa passou do limite de mensagens da IA.',
+  media_received: 'Lead mandou arquivo que a IA não conseguiu ler.',
+  turn_failed: 'Falha da IA no atendimento.',
+  followup_exhausted: 'Lead parou de responder.',
+};
+
 const withConfidence = (note: string, c?: string | null) => (c ? `${note} (certeza da IA: ${c})` : note);
 
 export async function handOff(
@@ -414,7 +426,7 @@ export async function handOff(
   await pipeline.moveToHandoff(withConfidence(summary || `Onboarding IA encerrado (${reason}).`, confidence));
   const cls = classification ?? state.classification;
   if (reason === 'classified' && cls) await fireCrm(ctx, classificationEvent(cls), summary ?? '');
-  else await fireCrm(ctx, 'passou_para_equipe', reason);
+  else await fireCrm(ctx, 'passou_para_equipe', HANDOFF_NOTE[reason] ?? reason);
 
   const label = classification ? agent.classification_labels.find((l) => l.key === classification) : undefined;
   if (label?.chat_label_id) await pipeline.attachLabel(label.chat_label_id);
