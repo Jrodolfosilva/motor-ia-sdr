@@ -100,6 +100,31 @@ export interface FollowUpStep {
   delay_minutes: number;
   message: string;
   is_active: boolean;
+  /**
+   * Template da Meta (id em agent.templates) usado quando a janela de 24h do WhatsApp já fechou
+   * (fora dela só sai template). Vazio = fora da janela este passo é pulado.
+   */
+  template_id?: string | null;
+}
+
+// ---------- Templates da Meta (WhatsApp oficial) ----------
+
+/**
+ * Template aprovado na Meta, cadastrado à mão (o cliente cria e aprova no WhatsApp Manager).
+ * `params[i]` = valor de {{i+1}}: "{nome}" (primeiro nome), "{campo:<key>}" (dado da lead) ou texto fixo.
+ */
+export interface WhatsAppTemplate {
+  id: string;
+  /** Nome exato na Meta (ex: atendimento_4). */
+  name: string;
+  /** Idioma (padrão pt_BR). */
+  lang?: string | null;
+  /** Texto como foi aprovado, com {{1}}, {{2}}... (vai para o histórico da IA). */
+  body: string;
+  params?: string[];
+  /** Cabeçalho com mídia (opcional): arquivo do kit ("media/...") ou URL pública. */
+  header?: { type: 'image' | 'video' | 'document'; path?: string | null; url?: string | null } | null;
+  note?: string | null;
 }
 
 export interface MediaItem {
@@ -287,6 +312,10 @@ export interface Agent {
   log_executions: boolean;
   /** Ritmo dos balões: "digitando…" + pausa antes de cada um. Ausente = padrão (2 a 6s). */
   bubble_delay?: BubbleDelay | null;
+  /** Templates da Meta cadastrados (abertura e follow-up fora da janela de 24h). */
+  templates?: WhatsAppTemplate[];
+  /** Template que abre a conversa (lead de formulário). null = abre com a recepção normal. */
+  opening_template_id?: string | null;
 }
 
 export interface BubbleDelay {
@@ -373,6 +402,8 @@ export interface ConversationState {
   followupStage?: string | null;
   /** Sequência de follow-up esgotada (passos + espera final) sem resposta. */
   followupDone?: boolean;
+  /** A conversa abriu com template (motor ou automação do CRM): a recepção não sai de novo. */
+  openedByTemplate?: boolean;
   /** Respostas prontas de FAQ já enviadas ("<índice da pergunta>:<índice do formato>"). */
   faqSent?: string[];
   /** Formato da última resposta pronta de FAQ (para variar: texto / áudio / vídeo). */
@@ -442,6 +473,10 @@ export interface ChannelPort {
   postInternalNote(text: string): Promise<void>;
   /** Presença "digitando…" / "gravando áudio…" (WhatsApp: composing/recording). Opcional. */
   setTyping?(on: boolean, mode?: 'typing' | 'recording'): Promise<void>;
+  /** Envia template da Meta. `known` preenche as variáveis. Opcional (canais sem template). */
+  sendTemplate?(tpl: WhatsAppTemplate, known: Record<string, unknown>): Promise<void>;
+  /** false = janela de 24h fechada (só template). Ausente = sempre pode texto livre. */
+  canSendFreeText?(): Promise<boolean>;
 }
 
 export type EngineEvent =

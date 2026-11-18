@@ -4,6 +4,7 @@
 // desde a última mensagem da conversa. Esgotou (passos + espera final) → marco "sem_resposta" no CRM.
 // Quem chama decide QUANDO (servidor: varredura periódica); aqui fica o "o quê".
 import { fireCrm } from './crm';
+import { findTemplate } from './templates';
 import { RequiredFieldsStatus } from './rules/requiredFields';
 import type { Agent, ConversationState, FollowUpStep, TurnContext } from './types';
 
@@ -75,8 +76,19 @@ export async function runFollowup(ctx: TurnContext, due: FollowupDue): Promise<v
   if (due.kind === 'step') {
     const known = await store.getKnownFields();
     const step = due.plan.steps[due.index];
-    await pipeline.emitEvent({ kind: 'info', message: `Follow-up ${due.index + 1}/${due.plan.steps.length} · ${due.plan.label}` });
-    await channel.sendText(renderFollowup(step.message, known));
+    const label = `Follow-up ${due.index + 1}/${due.plan.steps.length} · ${due.plan.label}`;
+    // WhatsApp oficial: passada a janela de 24h só sai template
+    const free = (await channel.canSendFreeText?.()) ?? true;
+    const tpl = findTemplate(ctx.agent, step.template_id);
+    if (free) {
+      await pipeline.emitEvent({ kind: 'info', message: label });
+      await channel.sendText(renderFollowup(step.message, known));
+    } else if (tpl && channel.sendTemplate) {
+      await pipeline.emitEvent({ kind: 'info', message: `${label} (fora da janela de 24h: template ${tpl.name})` });
+      await channel.sendTemplate(tpl, known);
+    } else {
+      await pipeline.emitEvent({ kind: 'info', message: `${label} pulado: janela de 24h fechada e o passo não tem template.` });
+    }
     await store.saveState({ followupStepSent: due.index + 1, followupStage: due.plan.stage });
     return;
   }

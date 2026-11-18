@@ -203,7 +203,58 @@ export interface RequiredDocument {
   followup?: FollowUpStep[] | null;
 }
 
-export interface FollowUpStep { step: number; delay_minutes: number; message: string; is_active: boolean }
+export interface FollowUpStep {
+  step: number; delay_minutes: number; message: string; is_active: boolean;
+  /** Template usado quando a janela de 24h do WhatsApp já fechou. Vazio = passo pulado fora da janela. */
+  template_id?: string | null;
+}
+
+// ---------- Templates da Meta + integração Fale Fácil / Bitrix ----------
+export interface WhatsAppTemplate {
+  id: string;
+  name: string;
+  lang?: string | null;
+  body: string;
+  /** Valor de cada {{n}}: "{nome}", "{campo:<key>}" ou texto fixo. */
+  params?: string[];
+  header?: { type: 'image' | 'video' | 'document'; path?: string | null; url?: string | null } | null;
+  note?: string | null;
+}
+export interface FieldMapping { crm_field: string; key: string; write_back?: boolean }
+export interface IntegrationConfig {
+  enabled: boolean;
+  channel: 'falefacil';
+  crm: 'bitrix';
+  opening_mode: 'engine' | 'external';
+  stage_map: Record<string, string>;
+  active_stages: string[];
+  field_map: FieldMapping[];
+  handoff: { transfer_type: 'user' | 'queue'; transfer_id: string | null; assign_user_id: string | null };
+  mirror_to_timeline: boolean;
+  test_phones: string[];
+}
+export const defaultIntegration = (): IntegrationConfig => ({
+  enabled: false, channel: 'falefacil', crm: 'bitrix', opening_mode: 'external', stage_map: {}, active_stages: [], field_map: [],
+  handoff: { transfer_type: 'user', transfer_id: null, assign_user_id: null }, mirror_to_timeline: true, test_phones: [],
+});
+export interface SecretState { saved: boolean; hint: string | null }
+export interface IntegrationInfo {
+  secrets: { falefacil_api_key: SecretState; falefacil_webhook_token: SecretState; bitrix_webhook_url: SecretState };
+  urls: { falefacil_webhook: string; bitrix_lead_webhook: string };
+  public_base: string | null;
+}
+export interface BitrixCatalog {
+  portal: string;
+  stages: { id: string; name: string; sort: number; semantics: string | null }[];
+  users: { id: string; name: string }[];
+  fields: { code: string; label: string; type: string; items?: { id: string; value: string }[] }[];
+  queues: { id: string; name: string }[];
+  warnings: string[];
+}
+export interface LiveConversation {
+  id: string; phone: string; leadId: string | null; leadUrl: string | null; status: string; classification: string | null;
+  stage: string | null; messages: number; last: { role: string; body: string; type: string } | null; updatedAt: string;
+}
 /** Pergunta frequente. `replies` = respostas prontas (texto/áudio/vídeo); o motor alterna o formato. */
 export interface Faq { question: string; answer: string; replies?: ReceptionMessage[] | null }
 
@@ -255,6 +306,9 @@ export interface KitFile {
     crm?: CrmConfig | null;
     test_lead?: TestLead | null;
     form_confirmation?: { enabled: boolean; intro?: string | null; outro?: string | null } | null;
+    templates?: WhatsAppTemplate[];
+    opening_template_id?: string | null;
+    integration?: IntegrationConfig | null;
     [k: string]: unknown;
   };
   [k: string]: unknown;
@@ -382,6 +436,16 @@ export const api = {
     req<AgentConfig>(`/api/agents/${encodeURIComponent(key)}`, { kit, system_prompt }, 'PUT'),
   setPublicLink: (key: string, body: { enabled?: boolean; regenerate?: boolean }) =>
     req<PublicLink>(`/api/agents/${encodeURIComponent(key)}/public-link`, body, 'PUT'),
+  integration: (key: string) => req<IntegrationInfo>(`/api/agents/${encodeURIComponent(key)}/integration`),
+  saveSecrets: (key: string, body: Partial<Record<'falefacil_api_key' | 'falefacil_webhook_token' | 'bitrix_webhook_url', string>>) =>
+    req<IntegrationInfo>(`/api/agents/${encodeURIComponent(key)}/integration/secrets`, body, 'PUT'),
+  regenerateHooks: (key: string) => req<IntegrationInfo>(`/api/agents/${encodeURIComponent(key)}/integration/regenerate`, {}),
+  testIntegration: (key: string) => req<Record<'falefacil' | 'bitrix', { ok: boolean; detail: string }>>(`/api/agents/${encodeURIComponent(key)}/integration/test`, {}),
+  bitrixCatalog: (key: string) => req<BitrixCatalog>(`/api/agents/${encodeURIComponent(key)}/integration/catalog`),
+  accountTemplates: (key: string) => req<{ templates: any[] }>(`/api/agents/${encodeURIComponent(key)}/integration/templates`),
+  liveConversations: (key: string) => req<{ conversations: LiveConversation[] }>(`/api/agents/${encodeURIComponent(key)}/integration/conversations`),
+  resetLiveConversation: (key: string, id: string) =>
+    req<{ ok: true }>(`/api/agents/${encodeURIComponent(key)}/integration/conversations/${encodeURIComponent(id)}`, undefined, 'DELETE'),
   /** Página do link público: só nome, documentos e lead de teste, sem prompt/config. */
   getPublicAgent: (token: string) => req<PublicAgent>(`/api/public/agent?t=${encodeURIComponent(token)}`),
 };

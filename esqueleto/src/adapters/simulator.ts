@@ -1,6 +1,7 @@
 // Adapters do chat simulador sobre um objeto Session em memória.
 // O servidor persiste a Session no MongoDB (adapters/sessionRepo.ts); os testes usam só a memória.
 import { randomUUID } from 'node:crypto';
+import type { LiveInfo } from '../integrations/live';
 import type {
   Agent, ChannelPort, ConversationState, ConversationStore, EngineEvent, LlmProvider,
   MediaAnalyzerPort, PipelinePort, StoredMessage, TurnContext, UsageRecorder, CallLog,
@@ -32,6 +33,8 @@ export interface Session {
   audioUsage: { model: string; seconds: number; messageId: string }[];
   /** Próximo follow-up por inatividade (hora em ms). `step` null = fechamento da sequência (espera final). */
   followupNext?: { at: number; stage: string; label: string; step: number | null; total: number } | null;
+  /** Conversa REAL (WhatsApp + CRM): os envios saem pelo canal de verdade. Ausente = simulador. */
+  live?: LiveInfo | null;
 }
 
 const sessions = new Map<string, Session>();

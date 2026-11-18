@@ -26,6 +26,9 @@ import { sessionRepo } from './adapters/sessionRepo';
 import { getObject, objectKeyFor, putObject, sendObject } from './adapters/storage';
 import { allowHit } from './adapters/rateLimit';
 import { authRouter, currentUser, requireAdmin } from './auth/auth';
+import { openingTemplate, openWithTemplate } from './engine/templates';
+import { createRuntime } from './integrations/runtime';
+import { deleteSecrets } from './integrations/secrets';
 
 function kitToAgent(raw: Record<string, any>, apiKey: string): Agent {
   const a = raw.agent;
@@ -47,6 +50,8 @@ function kitToAgent(raw: Record<string, any>, apiKey: string): Agent {
     followup_steps: a.followup_steps ?? [], followup_confirmation: a.followup_confirmation ?? null, form_confirmation: a.form_confirmation ?? null, followup_final_wait_minutes: a.followup_final_wait_minutes,
     log_executions: true,
     bubble_delay: a.bubble_delay ?? null,
+    templates: a.templates ?? [],
+    opening_template_id: a.opening_template_id ?? null,
   };
 }
 
@@ -228,6 +233,7 @@ app.delete('/api/agents/:key', wrap(async (req, res) => {
   const key = String(req.params.key);
   try {
     await deleteKit(key);
+    await deleteSecrets(key).catch(() => {});
   } catch (e) {
     if (e instanceof NotFound) throw e;
     return res.status(400).json({ error: (e as Error).message });
@@ -366,9 +372,15 @@ function publish(s: Session) {
   }
 }
 
-async function contextFor(s: Session) {
+async function baseContext(s: Session) {
   const { agent, vision } = await agentFor(s.agentId);
   return { ...buildSimulatorContext(s, agent, llm, vision, publish), pacing: { sleep } };
+}
+
+/** Simulador: só registra. Conversa real (s.live): envia pelo WhatsApp e mexe no CRM. */
+async function contextFor(s: Session) {
+  const base = await baseContext(s);
+  return s.live ? runtime.liveContext(s, base) : base;
 }
 
 /** Agenda um turno (debounce). Se já há turno rodando, roda outro assim que ele terminar. */
@@ -434,7 +446,13 @@ async function fireFollowup(s: Session, force = false): Promise<boolean> {
   if (!due || (!force && due.dueAt > Date.now())) return false;
   t.running = true;
   try {
-    await runFollowup(await contextFor(s), due);
+    const ctx = await contextFor(s);
+    // conversa real: equipe assumiu (card fora das etapas da IA) → sem follow-up
+    if (s.live && !(await ctx.pipeline.isInOnboarding())) {
+      s.followupNext = null;
+      return true;
+    }
+    await runFollowup(ctx, due);
   } finally {
     t.running = false;
     await planFollowup(s).catch(() => { s.followupNext = null; });
@@ -549,7 +567,13 @@ app.post('/api/sessions/:id/start', async (req, res) => {
   const s = await sessionFor(req, res);
   if (!s) return;
   const untouched = s.state.status === 'active' && s.state.turnsCount === 0 && !s.messages.some((m) => m.role === 'user');
-  if (untouched && !turns.get(s.id)?.running) scheduleTurn(s, 0);
+  const tpl = openingTemplate((await agentFor(s.agentId)).agent);
+  if (untouched && tpl && !s.state.openedByTemplate) {
+    // abertura por template (WhatsApp oficial): o template sai e a IA espera a lead responder
+    await openWithTemplate(await contextFor(s), tpl);
+    await planFollowup(s).catch(() => {});
+    publish(s);
+  } else if (untouched && !tpl && !turns.get(s.id)?.running) scheduleTurn(s, 0);
   res.status(202).json(view(s, isAdmin(req)));
 });
 
@@ -562,6 +586,24 @@ app.post('/api/sessions/:id/messages', async (req, res) => {
   if (!body) return res.status(400).json({ error: 'Mensagem vazia' });
   return ingest(s, appendUser(s, { type: 'text', body }), res);
 });
+
+// ---------- Integração (WhatsApp Fale Fácil + CRM Bitrix): conversas reais ----------
+
+const runtime = createRuntime({
+  agentFor,
+  sessions: sessionRepo,
+  baseContext,
+  scheduleTurn,
+  async afterSend(s) {
+    await planFollowup(s).catch((e) => console.error('follow-up: falha ao agendar', e));
+    publish(s);
+  },
+  async transcribe(audio, mime) {
+    const t = await transcribe(API_KEY, audio, mime);
+    return { text: t.text, seconds: t.seconds, model: TRANSCRIBE_MODEL };
+  },
+});
+app.use(runtime.router);
 
 // ---------- Foto / PDF enviados pelo lead ----------
 // Igual ao WhatsApp: o arquivo entra no fluxo e a IA lê (visão / texto do PDF) no turno.

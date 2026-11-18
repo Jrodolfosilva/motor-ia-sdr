@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import ReceptionEditor, { emptyReception, Slot } from './ReceptionEditor';
 import ExplanationEditor, { emptyExplanation } from './ExplanationEditor';
 import GuardrailsEditor, { emptyGuardrails } from './GuardrailsEditor';
 import CrmEditor, { emptyCrm } from './CrmEditor';
 import PublicLinkCard from './PublicLinkCard';
+import IntegrationEditor from './IntegrationEditor';
 import {
-  api, type AgentConfig, type PublicLink, type Reception, type ReceptionMessage, type ClassificationLabel, type DocumentFileType, type FollowUpStep, type KitFile, type TestLeadKind, type RequiredDocument, type Rule, type RuleOperator,
+  api, type AgentConfig, type PublicLink, type Reception, type ReceptionMessage, type ClassificationLabel, type DocumentFileType, type FollowUpStep, type KitFile, type TestLeadKind, type RequiredDocument, type Rule, type RuleOperator, type WhatsAppTemplate,
 } from './api';
 
-type Section = 'geral' | 'conduta' | 'crm' | 'recepcao' | 'explicacao' | 'prompt' | 'mensagens' | 'perguntas' | 'documentos' | 'classificacao' | 'faq' | 'followup' | 'publico' | 'json';
+type Section = 'geral' | 'conduta' | 'crm' | 'integracao' | 'recepcao' | 'explicacao' | 'prompt' | 'mensagens' | 'perguntas' | 'documentos' | 'classificacao' | 'faq' | 'followup' | 'publico' | 'json';
 
 /** Seções na ordem das etapas da conversa; `group` vira um subtítulo no menu. */
 const SECTIONS: { id: Section; label: string; group?: string }[] = [
@@ -24,6 +25,7 @@ const SECTIONS: { id: Section; label: string; group?: string }[] = [
   { id: 'mensagens', label: '6. Encerramento' },
   { id: 'followup', label: 'Follow-up (inatividade)' },
   { id: 'crm', label: 'CRM / Kanban', group: 'Integração' },
+  { id: 'integracao', label: 'Fale Fácil + Bitrix' },
   { id: 'publico', label: 'Link público e teste', group: 'Teste' },
   { id: 'json', label: 'JSON bruto', group: 'Avançado' },
 ];
@@ -111,11 +113,15 @@ function Num({ label, value, onChange, hint }: {
   );
 }
 
+/** Templates da Meta do agente (para o seletor "fora da janela de 24h" de cada passo de follow-up). */
+const TemplatesCtx = createContext<WhatsAppTemplate[]>([]);
+
 /** Sequência de follow-up (até 3 mensagens com intervalo). Vazia = usa a padrão do agente. */
 function FollowupSteps({ steps, onChange, emptyHint }: {
   steps: FollowUpStep[] | null | undefined; onChange: (v: FollowUpStep[] | null) => void; emptyHint?: string;
 }) {
   const list = steps ?? [];
+  const templates = useContext(TemplatesCtx).filter((t) => t.name);
   const set = (next: FollowUpStep[]) => onChange(next.length ? next.map((x, j) => ({ ...x, step: j + 1 })) : null);
   return (
     <div className="fu-steps">
@@ -136,6 +142,15 @@ function FollowupSteps({ steps, onChange, emptyHint }: {
               <button className="icon-btn" aria-label="Remover mensagem" onClick={() => set(list.filter((_, j) => j !== i))}>×</button>
             </div>
             <textarea rows={2} value={s.message} placeholder="Ex: Oi, {nome}! Conseguiu ver a data de saída? 😊" onChange={(e) => upd({ message: e.target.value })} />
+            {templates.length > 0 && (
+              <label className="f fu-tpl">
+                <span>Fora da janela de 24h do WhatsApp, enviar o template</span>
+                <select value={s.template_id ?? ''} onChange={(e) => upd({ template_id: e.target.value || null })}>
+                  <option value="">— nenhum (o passo é pulado) —</option>
+                  {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </label>
+            )}
           </div>
         );
       })}
@@ -325,6 +340,7 @@ export default function AgentEditor({ agentKey, onSaved }: { agentKey: string; o
         {!loaded.hasApiKey && <div className="warn">TOGETHER_API_KEY não definida no backend. O simulador não vai conseguir chamar o LLM.</div>}
       </aside>
 
+      <TemplatesCtx.Provider value={a.templates ?? []}>
       <section className="card editor-main">
         <div className="editor-bar">
           <span>{dirty ? '● Alterações não salvas' : 'Tudo salvo'}</span>
@@ -478,6 +494,18 @@ export default function AgentEditor({ agentKey, onSaved }: { agentKey: string; o
                 </>
               )}
             </>
+          )}
+
+          {section === 'integracao' && (
+            <IntegrationEditor
+              agentKey={agentKey}
+              value={a.integration}
+              templates={a.templates ?? []}
+              openingId={a.opening_template_id}
+              stages={a.crm?.stages ?? []}
+              fields={a.required_fields}
+              onChange={(patch) => setAgent(patch)}
+            />
           )}
 
           {section === 'crm' && (
@@ -854,6 +882,7 @@ export default function AgentEditor({ agentKey, onSaved }: { agentKey: string; o
           )}
         </div>
       </section>
+      </TemplatesCtx.Provider>
     </div>
   );
 }

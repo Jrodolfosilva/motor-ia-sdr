@@ -100,6 +100,7 @@ export const KIT_SECTIONS: { id: string; label: string; paths: string[] }[] = [
   { id: 'mensagens', label: '6. Encerramento', paths: ['agent.handoff_message', 'agent.disqualify_message'] },
   { id: 'followup', label: 'Follow-up', paths: ['agent.followup_steps', 'agent.followup_confirmation', 'agent.followup_final_wait_minutes'] },
   { id: 'crm', label: 'CRM / Kanban', paths: ['agent.crm'] },
+  { id: 'integracao', label: 'Fale Fácil + Bitrix (templates e mapeamentos; chaves não são copiadas)', paths: ['agent.integration', 'agent.templates', 'agent.opening_template_id'] },
   { id: 'teste', label: 'Teste (lead frio e formulário de exemplo)', paths: ['agent.test_lead'] },
 ];
 const ALWAYS_COPY = ['engine_version', 'agent.provider', 'agent.model', 'agent.models', 'agent.max_turns', 'agent.debounce_seconds', 'agent.bubble_delay'];

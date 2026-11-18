@@ -591,3 +591,20 @@ a.wa-file { color: inherit; text-decoration: none; }
 .wa-note.playing { box-shadow: 0 0 0 3px #25d366; }
 .wa-note-icon { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); background: #0008; color: #fff; font-size: 12px; padding: 2px 8px; border-radius: 10px; }
 .rx-media .wa-note { width: 160px; height: 160px; }
+
+/* ---------- Integração Fale Fácil + Bitrix ---------- */
+.int-secret { display: flex; gap: 6px; align-items: center; }
+.int-secret input, .int-secret select { flex: 1; min-width: 0; }
+.int-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0 14px; font-size: 13px; }
+.int-tpl-head { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; align-items: end; }
+.int-var { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.int-param { display: inline-flex; gap: 6px; align-items: center; flex: 1; min-width: 0; }
+.int-param select, .int-param input { min-width: 0; }
+.int-acc { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.int-row { grid-template-columns: 1fr 1fr !important; }
+.int-map { grid-template-columns: 1.2fr auto 1.2fr auto auto !important; align-items: center; }
+.int-conv { grid-template-columns: 1fr auto !important; }
+.int-checks { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-bottom: 10px; }
+.int-checks .f-check { padding-top: 0; }
+.fu-tpl { margin-top: 6px; }
+@media (max-width: 720px) { .int-map, .int-row, .int-tpl-head { grid-template-columns: 1fr !important; } }

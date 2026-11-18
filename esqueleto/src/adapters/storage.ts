@@ -1,6 +1,7 @@
 // Arquivos (mídia do kit e do lead) no MinIO/S3. Chaves no bucket:
 //   kits/<kitKey>/media/<arquivo>   ← referenciado no kit como "media/<arquivo>"
 //   sim/<arquivo>                    ← mídia enviada no simulador, referenciada como "sim/<arquivo>"
+//   live/<kitKey>/<arquivo>          ← mídia recebida no WhatsApp (conversa real)
 import type { Request, Response } from 'express';
 import { minio, MINIO_BUCKET } from '../db/connection';
 
@@ -77,7 +78,7 @@ export async function removePrefix(prefix: string): Promise<void> {
 /** Caminho lógico usado no motor ("media/x", "sim/x") → chave no bucket. null = caminho inválido. */
 export function objectKeyFor(path: string, kitKey: string): string | null {
   if (!path || path.includes('..') || path.includes('\\')) return null;
-  if (path.startsWith('sim/')) return path;
+  if (path.startsWith('sim/') || path.startsWith('live/')) return path;
   if (path.startsWith('media/')) return `kits/${kitKey}/${path}`;
   return null;
 }

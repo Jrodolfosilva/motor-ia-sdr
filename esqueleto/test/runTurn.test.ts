@@ -356,3 +356,29 @@ describe('runTurn', () => {
     });
   });
 });
+
+describe('abertura por template (WhatsApp oficial)', () => {
+  const tpl = { id: 't', name: 'atendimento_4', body: 'Olá, {{1}}! Posso confirmar seus dados?', params: ['{nome}'] };
+
+  it('template sai, a lead responde, a recepção não repete e segue para a confirmação', async () => {
+    const { openWithTemplate } = await import('../src/engine/templates');
+    const a = agent({
+      templates: [tpl], opening_template_id: 't', form_confirmation: { enabled: true, intro: 'Pode confirmar?' },
+      required_fields: [{ key: 'data_saida_ctps', label: 'Data de saída', question: 'Quando saiu?', confirm_label: 'Saída' }],
+      crm: { stages: [{ id: 'tpl', name: 'Template' }, { id: 'atd', name: 'Atendimento' }], labels: [], actions: { atendimento_iniciado: { move_to: 'tpl' }, lead_respondeu: { move_to: 'atd' } } },
+    });
+    const s = createSession('a', '5511999990000', { nome: 'Maria', data_saida_ctps: '01/08/2026' });
+    const ctx = buildSimulatorContext(s, a, fakeLlm({}), noVision);
+    await openWithTemplate(ctx, tpl);
+    expect(texts(s)).toEqual(['Olá, Maria! Posso confirmar seus dados?']);
+    expect(s.crm.stageId).toBe('tpl');
+
+    appendUser(s, { type: 'text', body: 'pode sim' });
+    await runTurn(ctx);
+    const out = texts(s);
+    expect(out).not.toContain('Olá! Sou a Ana.');
+    expect(out[1]).toContain('Pode confirmar?');
+    expect(out[1]).toContain('01/08/2026');
+    expect(s.crm.stageId).toBe('atd');
+  });
+});

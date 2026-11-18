@@ -116,7 +116,7 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
     || ((m.type === 'image' || m.type === 'document') && (!m.aiAnalysis || 'failed' in m.aiAnalysis)));
 
   // lead respondeu depois que o atendimento já falou (recepção/template ou 1ª pergunta)
-  if (turnsCount > 1 && fresh.length) await fireCrm(ctx, 'lead_respondeu');
+  if ((turnsCount > 1 || state.openedByTemplate) && fresh.length) await fireCrm(ctx, 'lead_respondeu');
 
   // 5. recepção por cenário (texto/áudio/vídeo fixos; sempre sai inteira, sem abortar)
   const isCold = !new RequiredFieldsStatus(agent.required_fields, known, agent.required_documents).hasAnyKnownData();
@@ -124,7 +124,8 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
   const proactive = turnsCount === 1 && !isCold && !(await store.lastInboundId());
   if (turnsCount === 1) {
     await fireCrm(ctx, 'atendimento_iniciado');
-    const scenario = receptionFor(agent, isCold ? 'volume' : 'form');
+    // abriu com template (motor ou automação do CRM): o template foi a recepção
+    const scenario = state.openedByTemplate ? { messages: [], after: 'continue' as const } : receptionFor(agent, isCold ? 'volume' : 'form');
     if (scenario.messages.length) {
       await sendReception(ctx, scenario, contact.phone);
       if (scenario.after === 'wait' && mediaOk) return; // IA só fala quando o lead responder
