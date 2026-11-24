@@ -276,6 +276,10 @@
           "name": "Template enviado"
         },
         {
+          "id": "ia_atendimento",
+          "name": "Atendimento IA"
+        },
+        {
           "id": "em_atendimento",
           "name": "Em atendimento"
         },
@@ -885,14 +889,13 @@
       "stage_map": {
         "indeterminado": "NEW",
         "template_enviado": "UC_052ZOL",
+        "ia_atendimento": "UC_FAC97B",
         "em_atendimento": "UC_52N96D",
         "pre_qualificado": "PROCESSED",
         "sem_direito": "UC_LGIKW0"
       },
       "active_stages": [
-        "NEW",
-        "UC_052ZOL",
-        "UC_52N96D"
+        "UC_FAC97B"
       ],
       "field_map": [
         {

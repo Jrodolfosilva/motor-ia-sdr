@@ -43,6 +43,24 @@ function rememberBase(req: express.Request) {
   if (!process.env.PUBLIC_BASE_URL && req.get('host')) PUBLIC_BASE = `${req.protocol}://${req.get('host')}`;
 }
 
+/**
+ * Lead respondeu o template (ainda em NEW ou TEMPLATE ENVIADO): move para "Atendimento IA", a única
+ * etapa em que a IA responde (active_stages). Falha aqui não derruba a mensagem: a IA só age se a etapa estiver certa.
+ */
+async function openIaStage(bx: Bitrix, cfg: IntegrationConfig, leadId: string): Promise<void> {
+  const ia = cfg.stage_map.ia_atendimento;
+  if (!ia) return;
+  const waiting = [cfg.stage_map.indeterminado, cfg.stage_map.template_enviado].filter(Boolean);
+  try {
+    const lead = await bx.getLead(leadId);
+    if (!lead || !waiting.includes(String(lead.STATUS_ID))) return;
+    await bx.updateLead(leadId, { STATUS_ID: ia });
+    await bx.comment(leadId, '📌 IA: lead respondeu o template, card movido para "Atendimento IA".').catch(() => {});
+  } catch (e) {
+    console.error(`[integração] lead ${leadId}: não moveu para Atendimento IA`, e);
+  }
+}
+
 export function createRuntime(deps: RuntimeDeps) {
   const router = express.Router();
 
@@ -182,6 +200,7 @@ export function createRuntime(deps: RuntimeDeps) {
           await base.store.saveState({ openedByTemplate: true });
         }
       }
+      if (s.live?.leadId) await openIaStage(clients.bx, cfg, s.live.leadId);
       const m = await appendInbound(s, kitKey, msg);
       const ctx = await liveContext(s, await deps.baseContext(s));
       if (opened && s.state.openedByTemplate) await fireCrm(ctx, 'atendimento_iniciado');
