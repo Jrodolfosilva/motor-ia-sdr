@@ -926,6 +926,10 @@
         {
           "crm_field": "UF_CRM_LEAD_1791409564282",
           "key": "Contribuiu ao INSS, 1 ano antes do bebê nascer?"
+        },
+        {
+          "crm_field": "UF_CRM_1761145420119",
+          "key": "seguro_desemprego"
         }
       ],
       "handoff": {
