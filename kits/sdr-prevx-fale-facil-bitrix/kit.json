@@ -148,7 +148,7 @@
         "messages": [
           {
             "kind": "text",
-            "enabled": true,
+            "enabled": false,
             "text": "Olá, mamãe! Seja muito bem-vinda à *PrevX Assessoria Maternidade*!\n\nJá ajudamos *mais de 15 mil mães* e *mais de 13 anos* de experiência no mercado."
           },
           {
@@ -185,11 +185,11 @@
         {
           "kind": "text",
           "enabled": true,
-          "text": "Perfeito😊, deixa eu te explicar rapidinho: o valor do benefício depende das suas contribuições ao INSS. A gente cuida da análise e faz o pedido. Quando for aprovado, te mando o dia, a hora e o banco mais próximo pro saque."
+          "text": "Para realizar a análise completa, vou precisar de alguns documentos para cadastro."
         },
         {
           "kind": "text",
-          "enabled": true,
+          "enabled": false,
           "text": "O valor costuma ficar entre R$ 5.600 e R$ 15.900, conforme as suas contribuições. 🙏🏼 Pra fazer a análise completa, vou precisar de alguns documentos seus."
         }
       ],
@@ -846,7 +846,7 @@
       "lead_kinds": null
     },
     "form_confirmation": {
-      "enabled": true,
+      "enabled": false,
       "intro": "Pode confirmar se os dados estão corretos?",
       "outro": null
     },
