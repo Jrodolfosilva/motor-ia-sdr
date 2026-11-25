@@ -356,9 +356,7 @@
             "ia_atendendo"
           ]
         },
-        "lead_respondeu": {
-          "move_to": "em_atendimento"
-        },
+        "lead_respondeu": {},
         "documento_recebido": {
           "add_labels": [
             "doc_recebido"
