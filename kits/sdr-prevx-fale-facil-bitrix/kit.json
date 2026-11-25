@@ -844,7 +844,7 @@
       "lead_kinds": null
     },
     "form_confirmation": {
-      "enabled": false,
+      "enabled": true,
       "intro": "Pode confirmar se os dados estão corretos?",
       "outro": null
     },
