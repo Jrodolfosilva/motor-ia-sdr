@@ -351,7 +351,6 @@
       ],
       "actions": {
         "atendimento_iniciado": {
-          "move_to": "template_enviado",
           "add_labels": [
             "ia_atendendo"
           ]
@@ -902,33 +901,76 @@
           "key": "situacao_trabalho"
         },
         {
+          "crm_field": "UF_CRM_LEAD_1791409594962",
+          "key": "data_saida_ctps"
+        },
+        {
+          "crm_field": "UF_CRM_LEAD_1782484099616",
+          "key": "data_saida_ctps"
+        },
+        {
           "crm_field": "UF_CRM_LEAD_1791409620036",
           "key": "data_saida_ctps"
         },
         {
-          "crm_field": "UF_CRM_1755045929",
-          "key": "data_saida_ctps",
-          "write_back": true
+          "crm_field": "UF_CRM_LEAD_1782484072899",
+          "key": "data_parto"
         },
         {
           "crm_field": "UF_CRM_LEAD_1782484149747",
           "key": "data_parto"
         },
         {
+          "crm_field": "UF_CRM_1761145420119",
+          "key": "seguro_desemprego"
+        },
+        {
           "crm_field": "UF_CRM_LEAD_1761140665432",
           "key": "Você está grávida atualmente?"
+        },
+        {
+          "crm_field": "UF_CRM_LEAD_1761140744272",
+          "key": "Você está grávida de quantos meses?"
+        },
+        {
+          "crm_field": "UF_CRM_LEAD_1761140680375",
+          "key": "Você tem filhos menores de 5 anos?"
+        },
+        {
+          "crm_field": "UF_CRM_LEAD_1761140714776",
+          "key": "Trabalhava com carteira assinada quando nasceu?"
+        },
+        {
+          "crm_field": "UF_CRM_68F8E08011924",
+          "key": "Já trabalhou com carteira assinada em alguma empresa?"
         },
         {
           "crm_field": "UF_CRM_LEAD_1782484010558",
           "key": "Já trabalhou registrada 1 ano antes?"
         },
         {
-          "crm_field": "UF_CRM_LEAD_1791409564282",
-          "key": "Contribuiu ao INSS, 1 ano antes do bebê nascer?"
+          "crm_field": "UF_CRM_LEAD_1782483755479",
+          "key": "Trabalhou registrada até 1 ano antes do bebê nascer?"
         },
         {
-          "crm_field": "UF_CRM_1761145420119",
-          "key": "seguro_desemprego"
+          "crm_field": "UF_CRM_LEAD_1761140788064",
+          "key": "Já fez contribuições (INSS, MEI, Pesca, Rural, etc)?"
+        },
+        {
+          "crm_field": "UF_CRM_LEAD_1761144188931",
+          "key": "Já fez contribuições (INSS, MEI, Pesca, Rural, etc)?"
+        },
+        {
+          "crm_field": "UF_CRM_LEAD_1782483837259",
+          "key": "Contribuiu ao INSS 1 ano antes do bebê nascer?"
+        },
+        {
+          "crm_field": "UF_CRM_LEAD_1791409564282",
+          "key": "Contribuiu ao INSS 1 ano antes do bebê nascer?"
+        },
+        {
+          "crm_field": "UF_CRM_68F8E07FF34DC",
+          "key": "Já recebeu o auxílio-maternidade ou licença-maternidade?"
         }
       ],
       "handoff": {
