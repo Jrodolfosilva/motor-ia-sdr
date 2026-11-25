@@ -893,7 +893,8 @@
         "sem_direito": "UC_LGIKW0"
       },
       "active_stages": [
-        "UC_FAC97B"
+        "UC_FAC97B",
+        "UC_52N96D"
       ],
       "field_map": [
         {
