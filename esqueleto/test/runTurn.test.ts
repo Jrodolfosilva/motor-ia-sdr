@@ -112,6 +112,19 @@ describe('runTurn', () => {
     expect(texts(s).at(-1)).toBe('Instabilidade');
   });
 
+  it('erro do provider com fallback_action handoff → passa para a equipe sem mensagem', async () => {
+    const s = createSession('a', '5511999990000', { x: 'y' });
+    const llm: LlmProvider = { chat: async () => { throw new Error('boom'); } };
+    const ctx = buildSimulatorContext(s, agent({ fallback_action: 'handoff' }), llm, noVision);
+    appendUser(s, { type: 'text', body: 'oi' });
+    await runTurn(ctx);
+    expect(texts(s)).not.toContain('Instabilidade');
+    expect(texts(s).some((t) => t.includes('segue com você'))).toBe(false);
+    expect(s.state.status).toBe('handed_off');
+    expect(s.state.handoffReason).toBe('turn_failed');
+    expect(s.state.crmFired).toContain('falha_ia');
+  });
+
   describe('lead de formulário: confirmar + documentos', () => {
     const now = new Date(2026, 10, 2);
     const withDoc = () => agent({

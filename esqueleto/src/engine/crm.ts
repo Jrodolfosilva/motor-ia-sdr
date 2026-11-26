@@ -23,6 +23,7 @@ export const CRM_EVENTS: CrmEventDef[] = [
   { key: 'documentos_completos', stage: '4. Documentos', label: 'Documentos completos', description: 'Todos os documentos do roteiro recebidos.' },
   { key: 'pendencia_registrada', stage: '4. Documentos', label: 'Pendência registrada', description: 'A lead disse que manda depois, que não tem ou recusou um item.' },
   { key: 'passou_para_equipe', stage: '6. Encerramento', label: 'Passou para a equipe (outros motivos)', description: 'Pediu humano, limite de turnos, mídia ilegível ou falha - sem classificação.' },
+  { key: 'falha_ia', stage: '6. Encerramento', label: 'Falha da IA (erro na API)', description: 'O provedor de IA deu erro e o agente está configurado para passar para a equipe sem avisar a lead.' },
   { key: 'sem_resposta', stage: 'Follow-up', label: 'Lead parou de responder', description: 'Follow-up por inatividade esgotado (todas as mensagens + espera final) sem resposta.' },
 ];
 

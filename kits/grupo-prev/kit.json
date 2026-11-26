@@ -260,6 +260,7 @@
       ]
     },
     "fallback_message": "Só um instante, tive uma instabilidade aqui - já te respondo 🙏🏼",
+    "fallback_action": "handoff",
     "handoff_message": "Perfeito, recebi tudo o que eu precisava 💛 Agora {atendente} da nossa equipe segue com você na próxima etapa (dados finais e contrato). Lembrando: honorário só se o benefício for concedido.",
     "disqualify_message": null,
     "handoff_keywords": [
@@ -764,6 +765,15 @@
           "move_to": "sem_direito",
           "add_labels": [
             "inelegivel"
+          ],
+          "remove_labels": [
+            "ia_atendendo"
+          ]
+        },
+        "falha_ia": {
+          "move_to": "em_atendimento",
+          "add_labels": [
+            "precisa_humano"
           ],
           "remove_labels": [
             "ia_atendendo"

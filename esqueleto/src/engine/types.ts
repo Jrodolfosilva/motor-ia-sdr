@@ -303,6 +303,8 @@ export interface Agent {
   handoff_message?: string | null;
   disqualify_message?: string | null;
   fallback_message?: string | null;
+  /** Erro da IA: 'message' (padrão) manda o fallback_message; 'handoff' passa para a equipe sem avisar a lead (marco CRM "falha_ia"). */
+  fallback_action?: 'message' | 'handoff';
   handoff_keywords: string[];
   max_turns: number;
   debounce_seconds: number;

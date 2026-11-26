@@ -274,7 +274,9 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
 
     if (text === '' && requestedMedia.length === 0 && !inlineExplanation && !faqToSend) throw new Error('Responder returned an empty reply');
   } catch (err) {
-    await pipeline.emitEvent({ kind: 'info', message: `Falha ao chamar o provedor de IA: ${(err as Error).message.slice(0, 300)}` });
+    const why = (err as Error).message.slice(0, 300);
+    await pipeline.emitEvent({ kind: 'info', message: `Falha ao chamar o provedor de IA: ${why}` });
+    if (agent.fallback_action === 'handoff') return handOff(ctx, 'turn_failed', null, `Falha da IA (erro na API): ${why}`, null, { silent: true });
     if (agent.fallback_message) await sendBubbles(ctx, [agent.fallback_message], null);
     else if (ctx.pacing) await channel.setTyping?.(false);
     return;
@@ -475,6 +477,7 @@ const withConfidence = (note: string, c?: string | null) => (c ? `${note} (certe
 export async function handOff(
   ctx: TurnContext, reason: HandoffReason,
   classification: string | null = null, summary: string | null = null, confidence: string | null = null,
+  opts: { silent?: boolean } = {},
 ): Promise<void> {
   const { agent, store, channel, pipeline } = ctx;
   const state = await store.loadState();
@@ -483,12 +486,13 @@ export async function handOff(
   await pipeline.moveToHandoff(withConfidence(summary || `Onboarding IA encerrado (${reason}).`, confidence));
   const cls = classification ?? state.classification;
   if (reason === 'classified' && cls) await fireCrm(ctx, classificationEvent(cls), summary ?? '');
+  else if (reason === 'turn_failed' && opts.silent) await fireCrm(ctx, 'falha_ia', HANDOFF_NOTE[reason] ?? reason);
   else await fireCrm(ctx, 'passou_para_equipe', HANDOFF_NOTE[reason] ?? reason);
 
   const label = classification ? agent.classification_labels.find((l) => l.key === classification) : undefined;
   if (label?.chat_label_id) await pipeline.attachLabel(label.chat_label_id);
 
-  if (agent.handoff_message) {
+  if (agent.handoff_message && !opts.silent) {
     const contact = await store.contact();
     const first = contact.assignedToName?.trim().split(' ')[0];
     await sendBubbles(ctx, [agent.handoff_message.replaceAll('{atendente}', first || 'nossa equipe')], null);

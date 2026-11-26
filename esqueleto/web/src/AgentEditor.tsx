@@ -535,7 +535,15 @@ export default function AgentEditor({ agentKey, onSaved }: { agentKey: string; o
               <p className="muted">Mensagens fixas de saída. A saudação e o "vou te fazer perguntas" agora ficam em <strong>1. Recepção</strong>.</p>
               <Area label="Mensagem de handoff" value={a.handoff_message} onChange={(v) => setAgent({ handoff_message: v })} hint="Use {atendente} para o nome do humano." />
               <Area label="Mensagem de desqualificação (padrão)" value={a.disqualify_message} onChange={(v) => setAgent({ disqualify_message: v || null })} hint="Cada rótulo de classificação pode sobrescrever." />
-              <Area label="Mensagem de fallback (erro)" value={a.fallback_message} onChange={(v) => setAgent({ fallback_message: v })} />
+              <label className="f">
+                <span>Quando a IA der erro (API fora, resposta vazia)</span>
+                <select value={a.fallback_action ?? 'message'} onChange={(e) => setAgent({ fallback_action: e.target.value as 'message' | 'handoff' })}>
+                  <option value="message">Mandar a mensagem de fallback abaixo</option>
+                  <option value="handoff">Passar para a equipe sem avisar a lead</option>
+                </select>
+                <small>Passar para a equipe dispara o marco "Falha da IA" em CRM / Kanban (ex.: mover para Em atendimento). A IA sai da conversa.</small>
+              </label>
+              {(a.fallback_action ?? 'message') === 'message' && <Area label="Mensagem de fallback (erro)" value={a.fallback_message} onChange={(v) => setAgent({ fallback_message: v })} />}
             </>
           )}
 

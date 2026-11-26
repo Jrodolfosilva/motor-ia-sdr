@@ -90,7 +90,7 @@ export async function listKits(): Promise<KitSummary[]> {
 export const KIT_SECTIONS: { id: string; label: string; paths: string[] }[] = [
   { id: 'empresa', label: 'Empresa, biblioteca de mídia e leitor de arquivos', paths: ['kit.company_info', 'kit.media_library', 'kit.vision_context'] },
   { id: 'prompt', label: 'System prompt', paths: ['agent.system_prompt'] },
-  { id: 'conduta', label: 'Conduta e limites', paths: ['agent.guardrails', 'agent.fallback_message', 'agent.handoff_keywords'] },
+  { id: 'conduta', label: 'Conduta e limites', paths: ['agent.guardrails', 'agent.fallback_message', 'agent.fallback_action', 'agent.handoff_keywords'] },
   { id: 'faq', label: 'FAQ', paths: ['kit.faq'] },
   { id: 'recepcao', label: '1. Recepção', paths: ['agent.reception', 'agent.form_confirmation', 'agent.greeting_example', 'agent.consent_message'] },
   { id: 'perguntas', label: '2. Perguntas', paths: ['agent.required_fields'] },

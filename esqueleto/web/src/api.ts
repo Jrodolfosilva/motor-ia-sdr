@@ -304,6 +304,7 @@ export interface KitFile {
     greeting_example?: string | null;
     consent_message?: string | null;
     fallback_message?: string | null;
+    fallback_action?: 'message' | 'handoff';
     handoff_message?: string | null;
     disqualify_message?: string | null;
     handoff_keywords: string[];
