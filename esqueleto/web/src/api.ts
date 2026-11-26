@@ -125,7 +125,7 @@ export interface Guardrails {
   video_reply?: string | null;
   audio_fail_reply?: string | null;
   file_fail_reply?: string | null;
-  file_fail_action?: 'reply' | 'handoff';
+  file_fail_action?: 'reply' | 'handoff' | 'handoff_always';
 }
 export interface ExplanationModule { enabled: boolean; messages: ReceptionMessage[]; after: 'wait' | 'continue'; trigger_fields: string[] }
 

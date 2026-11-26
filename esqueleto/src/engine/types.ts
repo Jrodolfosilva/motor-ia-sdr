@@ -224,8 +224,12 @@ export interface Guardrails {
   audio_fail_reply?: string | null;
   /** Mensagem fixa quando foto/PDF não deu pra ler. */
   file_fail_reply?: string | null;
-  /** Arquivo ilegível: responder com a mensagem fixa e seguir, ou passar para humano. */
-  file_fail_action?: 'reply' | 'handoff';
+  /**
+   * Foto/PDF da lead: 'reply' = arquivo ilegível ganha a mensagem fixa e a conversa segue;
+   * 'handoff' = arquivo ilegível passa para humano; 'handoff_always' = qualquer foto/PDF passa
+   * para humano (a IA lê antes, quando consegue, e o resumo vai para a equipe).
+   */
+  file_fail_action?: 'reply' | 'handoff' | 'handoff_always';
 }
 
 /** Módulo de explicação: mensagens fixas entre as perguntas e o pedido de documentos. */
@@ -373,7 +377,7 @@ export interface StoredMessage {
 }
 
 export type HandoffReason =
-  | 'classified' | 'disqualified' | 'media_received' | 'handoff_keyword'
+  | 'classified' | 'disqualified' | 'media_received' | 'file_received' | 'handoff_keyword'
   | 'max_turns_exceeded' | 'turn_failed' | 'followup_exhausted';
 
 export interface ConversationState {

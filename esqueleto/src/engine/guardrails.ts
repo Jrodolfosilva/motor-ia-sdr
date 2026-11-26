@@ -25,7 +25,10 @@ const fileFailed = (m: StoredMessage) =>
 
 /** Áudio/arquivo ilegível vira aviso fixo (e a conversa segue) em vez de passar para humano? */
 export const repliesToUnreadable = (agent: Agent, kind: 'audio' | 'file') =>
-  !!agent.guardrails && (kind === 'audio' ? !!agent.guardrails.audio_fail_reply : agent.guardrails.file_fail_action !== 'handoff' && !!agent.guardrails.file_fail_reply);
+  !!agent.guardrails && (kind === 'audio' ? !!agent.guardrails.audio_fail_reply : (agent.guardrails.file_fail_action ?? 'reply') === 'reply' && !!agent.guardrails.file_fail_reply);
+
+/** Toda foto/PDF que a lead mandar passa a conversa para a equipe. */
+export const handsOffEveryFile = (agent: Agent) => agent.guardrails?.file_fail_action === 'handoff_always';
 
 /** Avisos fixos para as mídias novas que a IA não consegue usar. Sem guardrails = nenhum (comportamento antigo). */
 export function mediaNotices(agent: Agent, fresh: StoredMessage[]): string[] {

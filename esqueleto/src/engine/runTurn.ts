@@ -12,7 +12,7 @@ import { decide } from './agents/qualifier';
 import { reply } from './agents/responder';
 import { nextFaqReplies, sendFaqReply, type FaqPick } from './faq';
 import { buildFormConfirmation } from './formConfirmation';
-import { mediaNotices, newInbound, repliesToUnreadable } from './guardrails';
+import { handsOffEveryFile, mediaNotices, newInbound, repliesToUnreadable } from './guardrails';
 import { classificationEvent, fireCrm } from './crm';
 import {
   explanationMessages, explanationReady, receptionFor, sendReception, splitAroundExplanation, type ExplanationState,
@@ -109,6 +109,9 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
   // avisos fixos (vídeo, áudio/arquivo que não deu pra usar) para as mensagens novas - calculado
   // antes da recepção, porque depois dela a "última fala do atendimento" muda
   const fresh = newInbound(await store.recentMessages(HISTORY_LIMIT));
+  // kit configurado para passar toda foto/PDF para a equipe: lido (se deu) e já sai do atendimento da IA
+  const files = fresh.filter((m) => m.type === 'image' || m.type === 'document');
+  if (files.length && handsOffEveryFile(agent)) return handOff(ctx, 'file_received', null, filesSummary(files));
   const notices = mediaNotices(agent, fresh);
   // a lead só mandou mídia que não dá pra usar (nada de texto/áudio/arquivo legível junto)?
   const onlyUnusable = notices.length > 0 && fresh.every((m) =>
@@ -368,6 +371,16 @@ export function buildHistory(messages: StoredMessage[]): ChatMessage[] {
   return out;
 }
 
+/** Resumo dos arquivos para a equipe (o que a IA leu em cada um, quando conseguiu). */
+export function filesSummary(files: StoredMessage[]): string {
+  const lines = files.map((m) => {
+    const kind = m.type === 'image' ? 'Foto' : 'Arquivo';
+    const a = m.aiAnalysis && !('failed' in m.aiAnalysis) ? m.aiAnalysis : null;
+    return a ? `- ${kind} (${a.tipo ?? 'outro'}): ${String(a.resumo ?? '').trim()}` : `- ${kind}: a IA não conseguiu abrir, conferir no chat.`;
+  });
+  return `Lead mandou ${files.length === 1 ? 'arquivo' : `${files.length} arquivos`} no WhatsApp:\n${lines.join('\n')}`;
+}
+
 async function analyzePendingMedia(ctx: TurnContext): Promise<boolean> {
   const reactTypes = ctx.agent.kit.vision_context?.react_to_types ?? DEFAULT_REACT_TYPES;
   const pending = (await ctx.store.recentMessages(HISTORY_LIMIT)).filter(
@@ -410,6 +423,7 @@ const HANDOFF_NOTE: Partial<Record<HandoffReason, string>> = {
   handoff_keyword: 'Lead pediu atendimento humano.',
   max_turns_exceeded: 'Conversa passou do limite de mensagens da IA.',
   media_received: 'Lead mandou arquivo que a IA não conseguiu ler.',
+  file_received: 'Lead mandou foto/PDF: equipe confere o documento.',
   turn_failed: 'Falha da IA no atendimento.',
   followup_exhausted: 'Lead parou de responder.',
 };

@@ -360,6 +360,7 @@ textarea.prompt { min-height: calc(100vh - 360px); line-height: 1.5; }
 .tab-hint { color: var(--muted); font-size: 13.5px; margin: 0 0 14px; }
 .seg-4 { grid-template-columns: repeat(4, 1fr); margin-bottom: 12px; }
 .seg-2 { grid-template-columns: 1fr 1fr; }
+.seg-3 { grid-template-columns: 1fr 1fr 1fr; }
 .rx-slot.off { background: var(--surface-2); }
 .rx-slot { padding-bottom: 12px; }
 .rx-body { margin-bottom: 4px; }

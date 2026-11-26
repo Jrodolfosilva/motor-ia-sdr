@@ -87,6 +87,25 @@ describe('conduta e limites', () => {
     expect(s.state.handoffReason).toBe('media_received');
   });
 
+  it('ação "handoff_always": foto lida passa para a equipe com o resumo do que a IA viu', async () => {
+    const s = createSession('a', '5511999990000');
+    const okVision = { supports: () => true, analyze: async () => ({ tipo: 'ctps', resumo: 'CTPS com saída em 20/10/2025', legivel: true, dados: {} }) };
+    const ctx = buildSimulatorContext(s, agent(guard({ file_fail_action: 'handoff_always' })), llm(), okVision as any);
+    const m = appendUser(s, { type: 'image', body: '', mediaPath: 'sim/x.png' });
+    expect(await intake(ctx, m, true)).toBe('schedule');
+    await runTurn(ctx);
+    expect(s.state.handoffReason).toBe('file_received');
+    expect(s.messages.some((x) => x.body.includes('CTPS com saída em 20/10/2025'))).toBe(true);
+  });
+
+  it('ação "handoff_always": foto sem arquivo também passa para a equipe', async () => {
+    const s = createSession('a', '5511999990000');
+    const ctx = buildSimulatorContext(s, agent(guard({ file_fail_action: 'handoff_always' })), llm(), noVision);
+    const m = appendUser(s, { type: 'image', body: '', mediaPath: null });
+    expect(await intake(ctx, m, true)).toBe('handed_off');
+    expect(s.state.handoffReason).toBe('media_received');
+  });
+
   it('sem conduta configurada: áudio sem transcrição passa para humano no intake', async () => {
     const s = createSession('a', '5511999990000');
     const ctx = buildSimulatorContext(s, agent(null), llm(), noVision);

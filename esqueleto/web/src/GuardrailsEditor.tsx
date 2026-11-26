@@ -64,12 +64,13 @@ export default function GuardrailsEditor({ value, onChange }: { value: Guardrail
       </label>
 
       <div className="f">
-        <span>Quando a foto/PDF não dá pra ler</span>
-        <div className="seg seg-2">
-          <button type="button" className={value.file_fail_action !== 'handoff' ? 'on' : ''} onClick={() => set({ file_fail_action: 'reply' })}>Avisar e pedir de novo</button>
-          <button type="button" className={value.file_fail_action === 'handoff' ? 'on' : ''} onClick={() => set({ file_fail_action: 'handoff' })}>Passar para a equipe</button>
+        <span>Quando a lead manda foto/PDF</span>
+        <div className="seg seg-3">
+          <button type="button" className={(value.file_fail_action ?? 'reply') === 'reply' ? 'on' : ''} onClick={() => set({ file_fail_action: 'reply' })}>Ilegível: avisar e pedir de novo</button>
+          <button type="button" className={value.file_fail_action === 'handoff' ? 'on' : ''} onClick={() => set({ file_fail_action: 'handoff' })}>Ilegível: passar para a equipe</button>
+          <button type="button" className={value.file_fail_action === 'handoff_always' ? 'on' : ''} onClick={() => set({ file_fail_action: 'handoff_always' })}>Sempre passar para a equipe</button>
         </div>
-        {value.file_fail_action !== 'handoff' && (
+        {(value.file_fail_action ?? 'reply') === 'reply' && (
           <textarea rows={2} value={value.file_fail_reply ?? ''} onChange={(e) => set({ file_fail_reply: e.target.value || null })} />
         )}
         <small>Foto legível mas borrada é diferente: a IA já pede para reenviar com mais nitidez.</small>
