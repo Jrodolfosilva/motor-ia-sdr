@@ -8,3 +8,6 @@ dist-embed
 .DS_Store
 *.tar
 .env.*
+
+# relatórios com dados de leads (não versionar)
+relatorios/
