@@ -1,6 +1,7 @@
 // Sessões do simulador no MongoDB. O motor muta o objeto Session em memória (adapters/simulator.ts);
 // aqui fica um cache das sessões ativas e cada mudança agenda uma gravação (write-behind curto).
 import { PlaygroundSessionModel } from '../db/models/PlaygroundSession';
+import { saveLiveLog } from './liveLog';
 import type { Session } from './simulator';
 
 const SAVE_DELAY_MS = 250;
@@ -24,7 +25,10 @@ async function write(s: Session): Promise<void> {
   const prev = inflight.get(s.id) ?? Promise.resolve();
   const next = prev
     .catch(() => {})
-    .then(async () => { await PlaygroundSessionModel.replaceOne({ _id: s.id }, toDoc(s), { upsert: true }); });
+    .then(async () => {
+      await PlaygroundSessionModel.replaceOne({ _id: s.id }, toDoc(s), { upsert: true });
+      if (s.live) await saveLiveLog(s).catch((e) => console.error(`log da conversa ${s.id}`, e));
+    });
   inflight.set(s.id, next);
   try {
     await next;

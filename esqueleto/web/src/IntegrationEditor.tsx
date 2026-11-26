@@ -6,6 +6,7 @@ import {
   api, defaultIntegration, type BitrixCatalog, type CrmStage, type FieldMapping, type IntegrationConfig, type IntegrationInfo,
   type LiveConversation, type RequiredField, type WhatsAppTemplate,
 } from './api';
+import { LiveReport } from './LiveReport';
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const varCount = (body: string) => Math.max(0, ...[...(body ?? '').matchAll(/\{\{\s*(\d+)\s*\}\}/g)].map((m) => Number(m[1])));
@@ -368,6 +369,8 @@ export default function IntegrationEditor({ agentKey, value, templates, openingI
           ))}
         </div>
       )}
+
+      <LiveReport agentKey={agentKey} />
     </>
   );
 }

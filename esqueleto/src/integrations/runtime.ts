@@ -7,6 +7,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import express from 'express';
 import { createSession, deleteSession, type Session, type SimMessage } from '../adapters/simulator';
 import { objectKeyFor, putObject, sendObject } from '../adapters/storage';
+import { LIVE_LOG_TTL_DAYS, LiveLogModel } from '../db/models/LiveLog';
 import { PlaygroundSessionModel } from '../db/models/PlaygroundSession';
 import { redis } from '../db/connection';
 import { fireCrm } from '../engine/crm';
@@ -375,6 +376,76 @@ export function createRuntime(deps: RuntimeDeps) {
         };
       }),
     });
+  }));
+
+  /**
+   * Relatório dos últimos N dias (máx. 7, o tempo que o log fica guardado): leads criados no Bitrix
+   * × conversas registradas (o lead respondeu? a IA atuou?). Conversas de leads mais antigos vêm em `others`.
+   */
+  router.get('/api/agents/:key/integration/report', wrap(async (req, res) => {
+    const kitKey = String(req.params.key);
+    await deps.agentFor(kitKey);
+    const days = Math.min(LIVE_LOG_TTL_DAYS, Math.max(1, Number(req.query.days) || LIVE_LOG_TTL_DAYS));
+    const since = new Date(Date.now() - days * 86_400_000);
+    const logs = await LiveLogModel.find({ kitKey, lastAt: { $gte: since } }, { messages: 0 }).sort({ startedAt: -1 }).lean();
+    const summary = (l: (typeof logs)[number]) => ({
+      id: l._id, leadId: l.leadId, leadUrl: l.leadUrl, phone: l.phone, name: l.name, startedAt: l.startedAt, lastAt: l.lastAt,
+      status: l.status, classification: l.classification, stage: l.stage, inbound: l.inbound, aiReplies: l.aiReplies,
+    });
+    const byLead = new Map<string, ReturnType<typeof summary>[]>();
+    for (const l of logs) if (l.leadId) byLead.set(l.leadId, [...(byLead.get(l.leadId) ?? []), summary(l)]);
+
+    let leads: Record<string, any>[] = [];
+    let bitrixError: string | null = null;
+    let stageNames: Record<string, string> = {};
+    let portal: string | null = null;
+    const sec = await getSecrets(kitKey);
+    if (sec.bitrix_webhook_url) {
+      try {
+        const bx = bitrix(sec.bitrix_webhook_url);
+        portal = bx.portal;
+        const [list, st] = await Promise.all([
+          bx.recentLeads(since, 1000),
+          bx.call('crm.status.list', { filter: { ENTITY_ID: 'STATUS' } }).catch(() => ({ result: [] })),
+        ]);
+        leads = list;
+        stageNames = Object.fromEntries(((st as any).result ?? []).map((s: any) => [String(s.STATUS_ID), String(s.NAME)]));
+      } catch (e) { bitrixError = (e as Error).message; }
+    } else bitrixError = 'Webhook do Bitrix não salvo.';
+
+    const rows = leads.map((l) => {
+      const id = String(l.ID);
+      const convs = byLead.get(id) ?? [];
+      byLead.delete(id);
+      return {
+        leadId: id,
+        leadUrl: portal ? `${portal}/crm/lead/details/${id}/` : null,
+        name: [l.NAME, l.LAST_NAME].filter((x) => x && String(x).trim()).join(' ').trim() || String(l.TITLE ?? ''),
+        phone: canonicalPhone(l.PHONE?.[0]?.VALUE) || (l.PHONE?.[0]?.VALUE ?? null),
+        createdAt: l.DATE_CREATE,
+        bitrixStage: stageNames[String(l.STATUS_ID)] ?? String(l.STATUS_ID ?? ''),
+        conversations: convs,
+      };
+    });
+    const others = [...byLead.values()].flat().concat(logs.filter((l) => !l.leadId).map(summary));
+    res.json({
+      days, since, bitrixError,
+      totals: {
+        leads: rows.length,
+        replied: rows.filter((r) => r.conversations.some((c) => c.inbound > 0)).length,
+        aiActed: rows.filter((r) => r.conversations.some((c) => c.aiReplies > 0)).length,
+        conversations: logs.length,
+      },
+      leads: rows,
+      others,
+    });
+  }));
+
+  /** Histórico completo de uma conversa registrada no log. */
+  router.get('/api/agents/:key/integration/logs/:id', wrap(async (req, res) => {
+    const log = await LiveLogModel.findOne({ _id: String(req.params.id), kitKey: String(req.params.key) }).lean();
+    if (!log) return res.sendStatus(404);
+    res.json(log);
   }));
 
   /** Apaga a conversa real (a próxima mensagem recomeça do zero). Não mexe no Bitrix nem no WhatsApp. */

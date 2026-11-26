@@ -255,6 +255,19 @@ export interface LiveConversation {
   id: string; phone: string; leadId: string | null; leadUrl: string | null; status: string; classification: string | null;
   stage: string | null; messages: number; last: { role: string; body: string; type: string } | null; updatedAt: string;
 }
+/** Conversa registrada no log de 7 dias (resumo). */
+export interface LiveLogSummary {
+  id: string; leadId: string | null; leadUrl: string | null; phone: string; name: string | null; startedAt: string; lastAt: string;
+  status: string | null; classification: string | null; stage: string | null; inbound: number; aiReplies: number;
+}
+export interface LiveLogMessage { role: 'user' | 'assistant' | 'event'; type: string; body: string; transcript?: string | null; mediaPath?: string | null; createdAt: string; event?: any }
+export interface LiveLog extends LiveLogSummary { messages: LiveLogMessage[] }
+export interface LiveReport {
+  days: number; since: string; bitrixError: string | null;
+  totals: { leads: number; replied: number; aiActed: number; conversations: number };
+  leads: { leadId: string; leadUrl: string | null; name: string; phone: string | null; createdAt: string; bitrixStage: string; conversations: LiveLogSummary[] }[];
+  others: LiveLogSummary[];
+}
 /** Pergunta frequente. `replies` = respostas prontas (texto/áudio/vídeo); o motor alterna o formato. */
 export interface Faq { question: string; answer: string; replies?: ReceptionMessage[] | null }
 
@@ -446,6 +459,8 @@ export const api = {
   liveConversations: (key: string) => req<{ conversations: LiveConversation[] }>(`/api/agents/${encodeURIComponent(key)}/integration/conversations`),
   resetLiveConversation: (key: string, id: string) =>
     req<{ ok: true }>(`/api/agents/${encodeURIComponent(key)}/integration/conversations/${encodeURIComponent(id)}`, undefined, 'DELETE'),
+  liveReport: (key: string, days = 7) => req<LiveReport>(`/api/agents/${encodeURIComponent(key)}/integration/report?days=${days}`),
+  liveLog: (key: string, id: string) => req<LiveLog>(`/api/agents/${encodeURIComponent(key)}/integration/logs/${encodeURIComponent(id)}`),
   /** Página do link público: só nome, documentos e lead de teste, sem prompt/config. */
   getPublicAgent: (token: string) => req<PublicAgent>(`/api/public/agent?t=${encodeURIComponent(token)}`),
 };

@@ -30,6 +30,8 @@ export interface Bitrix {
   comment(leadId: string | number, text: string): Promise<void>;
   /** A automação do Fale Fácil (robô) já mandou WhatsApp para este lead? */
   sentByAutomation(leadId: string | number): Promise<boolean>;
+  /** Leads criados a partir de `since` (mais novos primeiro, até `max`). */
+  recentLeads(since: Date, max?: number): Promise<Record<string, any>[]>;
 }
 
 /** Normaliza o endereço colado no painel (aceita com ou sem método no fim). */
@@ -131,6 +133,12 @@ export function bitrix(webhookUrl: string, fetchImpl: typeof fetch = fetch): Bit
         filter: { OWNER_TYPE_ID: 1, OWNER_ID: leadId, PROVIDER_ID: 'CONFIGURABLE_REST_APP' }, select: ['ID', 'SUBJECT'],
       });
       return (r.result ?? []).some((a: any) => /whats/i.test(String(a.SUBJECT ?? '')));
+    },
+    async recentLeads(since, max = 500) {
+      return all('crm.lead.list', {
+        filter: { '>=DATE_CREATE': since.toISOString() }, order: { DATE_CREATE: 'DESC' },
+        select: ['ID', 'TITLE', 'NAME', 'LAST_NAME', 'STATUS_ID', 'SOURCE_ID', 'DATE_CREATE', 'PHONE'],
+      }, max);
     },
   };
 }
