@@ -71,7 +71,7 @@ const MEDIA_TYPES = ['image', 'audio', 'video', 'document', 'sticker'] as const;
 /** Primeira URL http(s) que aparecer no objeto da mídia (o Fale Fácil pode injetar o link). */
 function findUrl(o: any, depth = 0): string | null {
   if (!o || typeof o !== 'object' || depth > 3) return null;
-  for (const k of ['url', 'link', 'media_url', 'mediaUrl', 'URL', 'download_url']) {
+  for (const k of ['url', 'link', 'file_url', 'media_url', 'mediaUrl', 'URL', 'download_url']) {
     if (typeof o[k] === 'string' && /^https?:\/\//.test(o[k])) return o[k];
   }
   for (const v of Object.values(o)) {
@@ -80,6 +80,10 @@ function findUrl(o: any, depth = 0): string | null {
   }
   return null;
 }
+
+/** Link do arquivo que o Fale Fácil injeta na raiz do payload (`file_url`), fora do objeto da mídia. */
+const rootFileUrl = (p: any): string | null =>
+  typeof p?.file_url === 'string' && /^https?:\/\//.test(p.file_url) ? p.file_url : null;
 
 /**
  * Payload do webhook → mensagem normalizada. Aceita o formato Meta ({ message, contact }), o formato
@@ -99,7 +103,7 @@ export function normalizeWebhook(p: any): InboundMessage | null {
     return {
       id: String(m.id ?? ''), from: String(m.from), name: p.contact?.profile?.name ?? null,
       fromMe: false, isGroup: false, type: type === 'sticker' ? 'sticker' : type, text: String(text),
-      media: media ? { id: media.id ?? null, url: findUrl(media) ?? findUrl(p.media) ?? null, mime: media.mime_type ?? null, filename: media.filename ?? null } : null,
+      media: media ? { id: media.id ?? null, url: findUrl(media) ?? rootFileUrl(p) ?? findUrl(p.media) ?? null, mime: media.mime_type ?? null, filename: media.filename ?? null } : null,
     };
   }
 
@@ -118,7 +122,7 @@ export function normalizeWebhook(p: any): InboundMessage | null {
       fromMe: !!info.IsFromMe, isGroup: !!info.IsGroup || jid.endsWith('@g.us'),
       type: key ? kinds[key] : msg.conversation || msg.extendedTextMessage ? 'text' : 'other',
       text: String(msg.conversation ?? msg.extendedTextMessage?.text ?? media?.caption ?? ''),
-      media: media ? { url: findUrl(media), mime: media.mimetype ?? null, filename: media.fileName ?? null } : null,
+      media: media ? { url: findUrl(media) ?? rootFileUrl(p), mime: media.mimetype ?? null, filename: media.fileName ?? null } : null,
     };
   }
 

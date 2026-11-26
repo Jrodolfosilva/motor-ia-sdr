@@ -130,14 +130,18 @@ export function createRuntime(deps: RuntimeDeps) {
   async function storeMedia(kitKey: string, url: string, fallbackMime: string): Promise<{ path: string; data: Buffer; mime: string } | null> {
     try {
       const r = await fetch(url, { signal: AbortSignal.timeout(30_000) });
-      if (!r.ok) return null;
+      if (!r.ok) {
+        console.warn(`[integração ${kitKey}] mídia: download ${r.status} ${url.slice(0, 120)}`);
+        return null;
+      }
       const data = Buffer.from(await r.arrayBuffer());
       const mime = (r.headers.get('content-type') ?? fallbackMime).split(';')[0].trim();
       const ext = mime.split('/')[1]?.replace(/[^a-z0-9]/gi, '').slice(0, 5) || 'bin';
       const path = `live/${kitKey}/${Date.now()}-${randomBytes(3).toString('hex')}.${ext}`;
       await putObject(path, data, mime);
       return { path, data, mime };
-    } catch {
+    } catch (e) {
+      console.warn(`[integração ${kitKey}] mídia: falha ao baixar ${url.slice(0, 120)}: ${(e as Error).message}`);
       return null;
     }
   }
@@ -252,6 +256,11 @@ export function createRuntime(deps: RuntimeDeps) {
     res.sendStatus(200); // responde já (limite de 10 s do Fale Fácil); processa em seguida
     const msg = normalizeWebhook(req.body);
     if (!msg) return;
+    if (msg.media && !msg.media.url) {
+      // diagnóstico: mídia sem link no webhook (a IA não consegue abrir o arquivo)
+      const b: any = req.body ?? {};
+      console.warn(`[integração ${kitKey}] mídia ${msg.type} sem URL. Chaves: raiz=${Object.keys(b).join(',')} msg=${Object.keys(b.message ?? b.event?.Message ?? {}).join(',')} file_url=${JSON.stringify(b.file_url ?? null)}`);
+    }
     handleInbound(kitKey, msg).catch((e) => console.error(`[integração ${kitKey}] mensagem de ${msg.from}`, e));
   });
 

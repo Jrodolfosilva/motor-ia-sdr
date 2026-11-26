@@ -46,6 +46,13 @@ describe('webhook do Fale Fácil', () => {
   it('status/entrega não é mensagem', () => {
     expect(normalizeWebhook({ statuses: [{ id: 'x' }] })).toBeNull();
   });
+
+  it('usa o file_url da raiz do payload quando a mídia não traz link (Meta e WAPI)', () => {
+    const meta = normalizeWebhook({ message: { from: '55', id: 'w', type: 'image', image: { id: 'm1', mime_type: 'image/jpeg' } }, file_url: 'https://ff/f.jpg' });
+    expect(meta?.media?.url).toBe('https://ff/f.jpg');
+    const wapi = normalizeWebhook({ event: { Info: { Chat: '5545@s.whatsapp.net', ID: 'A' }, Message: { imageMessage: { mimetype: 'image/jpeg' } } }, file_url: 'https://ff/g.jpg' });
+    expect(wapi?.media?.url).toBe('https://ff/g.jpg');
+  });
 });
 
 describe('templates', () => {
