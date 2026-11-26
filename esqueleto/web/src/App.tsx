@@ -82,41 +82,34 @@ function Panel({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
 
   return (
     <div className={`shell${menuOpen ? ' menu-open' : ''}`}>
-      <aside className="sidebar">
-        <div className="sidebar-glow" />
+      <header className="topbar">
         <div className="logo">
-          <span className="logo-mark"><Activity size={22} strokeWidth={2.2} /></span>
+          <span className="logo-mark"><Activity size={18} strokeWidth={2.2} /></span>
           <span className="logo-text">
             <strong>hub ia</strong>
             <small>motor de atendimento</small>
           </span>
         </div>
-        {agents.length > 0 && (
-          <label className="agent-picker">
-            <small>Agente aberto</small>
-            <select value={agentKey} onChange={(e) => selectAgent(e.target.value)}>
-              {agents.map((a) => <option key={a.key} value={a.key}>{a.name}{a.template ? ' (template)' : ''}</option>)}
-            </select>
-          </label>
-        )}
-        <nav className="sidenav">
+        <button className="icon-btn menu-btn" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu">
+          {menuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+        <nav className="topnav">
           {NAV.map(({ id, label, icon: Icon }) => (
             <a key={id} href={`#${HASH[id]}`} className={tab === id ? 'active' : ''}>
-              <Icon size={18} strokeWidth={1.8} />
+              <Icon size={17} strokeWidth={1.9} />
               {label}
             </a>
           ))}
         </nav>
-        <div className="sidebar-foot">Fase 1 · simulador</div>
-      </aside>
-      <div className="backdrop" onClick={() => setMenuOpen(false)} />
-
-      <div className="content">
-        <header className="topbar">
-          <button className="icon-btn menu-btn" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu">
-            {menuOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-          <div className="topbar-title">{TITLES[tab].title}</div>
+        <div className="topbar-right">
+          {agents.length > 0 && (
+            <label className="agent-picker">
+              <small>Agente</small>
+              <select value={agentKey} onChange={(e) => selectAgent(e.target.value)}>
+                {agents.map((a) => <option key={a.key} value={a.key}>{a.name}{a.template ? ' (template)' : ''}</option>)}
+              </select>
+            </label>
+          )}
           <div className="user-chip">
             <span className="user-avatar">{initials(user.name)}</span>
             <span className="user-meta">
@@ -125,8 +118,10 @@ function Panel({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
             </span>
             <button className="icon-btn" onClick={onLogout} aria-label="Sair" title="Sair"><LogOut size={16} /></button>
           </div>
-        </header>
+        </div>
+      </header>
 
+      <div className="content">
         <main className="main">
           <section className="card hero">
             <h1>{TITLES[tab].title}</h1>
