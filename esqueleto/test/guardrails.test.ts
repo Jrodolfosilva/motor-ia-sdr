@@ -36,6 +36,8 @@ function llm(seen: { system?: string } = {}): LlmProvider {
   };
 }
 
+const doc = (key: string, accepted: string[] = []) => ({ key, label: key, file_types: ['image' as const, 'pdf' as const], accepted, request_message: `manda ${key}` });
+
 const texts = (s: ReturnType<typeof createSession>) => s.messages.filter((m) => m.role === 'assistant').map((m) => m.body);
 
 describe('conduta e limites', () => {
@@ -87,23 +89,50 @@ describe('conduta e limites', () => {
     expect(s.state.handoffReason).toBe('media_received');
   });
 
-  it('ação "handoff_always": foto lida passa para a equipe com o resumo do que a IA viu', async () => {
+  it('ação "accept": foto lida conta como documento e a IA segue pedindo o próximo', async () => {
     const s = createSession('a', '5511999990000');
-    const okVision = { supports: () => true, analyze: async () => ({ tipo: 'ctps', resumo: 'CTPS com saída em 20/10/2025', legivel: true, dados: {} }) };
-    const ctx = buildSimulatorContext(s, agent(guard({ file_fail_action: 'handoff_always' })), llm(), okVision as any);
+    const ag = agent(guard({ file_fail_action: 'accept' }));
+    ag.required_documents = [doc('print_ctps'), doc('comprovante_gestacao', ['ultrassom'])];
+    const okVision = { supports: () => true, analyze: async () => ({ tipo: 'print_ctps', resumo: 'CTPS com saída em 20/10/2025', legivel: false, dados: {} }) };
+    const ctx = buildSimulatorContext(s, ag, llm(), okVision as any);
     const m = appendUser(s, { type: 'image', body: '', mediaPath: 'sim/x.png' });
     expect(await intake(ctx, m, true)).toBe('schedule');
     await runTurn(ctx);
-    expect(s.state.handoffReason).toBe('file_received');
-    expect(s.messages.some((x) => x.body.includes('CTPS com saída em 20/10/2025'))).toBe(true);
+    expect(s.state.status).toBe('active');
+    expect(String(s.customFields.print_ctps)).toContain('CTPS com saída em 20/10/2025');
+    expect(texts(s).length).toBeGreaterThan(0);
   });
 
-  it('ação "handoff_always": foto sem arquivo também passa para a equipe', async () => {
+  it('ação "accept": foto que a IA não lê vai para a equipe sem avisar a lead', async () => {
     const s = createSession('a', '5511999990000');
-    const ctx = buildSimulatorContext(s, agent(guard({ file_fail_action: 'handoff_always' })), llm(), noVision);
+    const ag = agent(guard({ file_fail_action: 'accept' }));
+    ag.required_documents = [doc('print_ctps'), doc('comprovante_gestacao', ['ultrassom'])];
+    const ctx = buildSimulatorContext(s, ag, llm(), failVision);
+    appendUser(s, { type: 'image', body: '', mediaPath: 'sim/x.png' });
+    await runTurn(ctx);
+    expect(s.state.handoffReason).toBe('file_received');
+    expect(s.customFields.print_ctps).toBe('Foto recebida (conferir no chat)');
+    expect(texts(s)).not.toContain('Não consegui abrir o arquivo, manda de novo?');
+  });
+
+  it('ação "accept": último documento recebido passa para a equipe', async () => {
+    const s = createSession('a', '5511999990000');
+    const ag = agent(guard({ file_fail_action: 'accept' }));
+    ag.required_documents = [doc('print_ctps'), doc('comprovante_gestacao', ['ultrassom'])];
+    s.customFields.print_ctps = 'Foto recebida';
+    const okVision = { supports: () => true, analyze: async () => ({ tipo: 'ultrassom', resumo: 'Ultrassom de 20 semanas', legivel: false, dados: {} }) };
+    const ctx = buildSimulatorContext(s, ag, llm(), okVision as any);
+    appendUser(s, { type: 'image', body: '', mediaPath: 'sim/x.png' });
+    await runTurn(ctx);
+    expect(s.state.handoffReason).toBe('file_received');
+    expect(String(s.customFields.comprovante_gestacao)).toContain('Ultrassom de 20 semanas');
+  });
+
+  it('ação "accept": foto sem arquivo baixado também é aceita (não passa para humano no intake)', async () => {
+    const s = createSession('a', '5511999990000');
+    const ctx = buildSimulatorContext(s, agent(guard({ file_fail_action: 'accept' })), llm(), noVision);
     const m = appendUser(s, { type: 'image', body: '', mediaPath: null });
-    expect(await intake(ctx, m, true)).toBe('handed_off');
-    expect(s.state.handoffReason).toBe('media_received');
+    expect(await intake(ctx, m, true)).toBe('schedule');
   });
 
   it('sem conduta configurada: áudio sem transcrição passa para humano no intake', async () => {

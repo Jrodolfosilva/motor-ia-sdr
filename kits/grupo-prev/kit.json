@@ -133,7 +133,7 @@
       "video_reply": "No momento não consigo assistir vídeos por aqui 🙏🏼 Se puder, me manda por texto, áudio ou foto/print que eu te ajudo.",
       "audio_fail_reply": "Não consegui entender seu áudio 🙏🏼 Pode me mandar de novo ou escrever, por favor?",
       "file_fail_reply": "Não consegui abrir esse arquivo por aqui 🙏🏼 Pode me mandar de novo, de preferência como foto ou print?",
-      "file_fail_action": "handoff_always"
+      "file_fail_action": "accept"
     },
     "reception": {
       "append_state_presence": false,

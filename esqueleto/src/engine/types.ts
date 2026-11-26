@@ -226,10 +226,11 @@ export interface Guardrails {
   file_fail_reply?: string | null;
   /**
    * Foto/PDF da lead: 'reply' = arquivo ilegível ganha a mensagem fixa e a conversa segue;
-   * 'handoff' = arquivo ilegível passa para humano; 'handoff_always' = qualquer foto/PDF passa
-   * para humano (a IA lê antes, quando consegue, e o resumo vai para a equipe).
+   * 'handoff' = arquivo ilegível passa para humano; 'accept' = toda foto/PDF conta como o próximo
+   * documento do roteiro (sem pedir reenvio); lido, a IA pede o seguinte e, com todos recebidos,
+   * passa para a equipe; não lido, passa direto para a equipe sem avisar a lead.
    */
-  file_fail_action?: 'reply' | 'handoff' | 'handoff_always';
+  file_fail_action?: 'reply' | 'handoff' | 'accept';
 }
 
 /** Módulo de explicação: mensagens fixas entre as perguntas e o pedido de documentos. */

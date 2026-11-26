@@ -12,7 +12,7 @@ import { decide } from './agents/qualifier';
 import { reply } from './agents/responder';
 import { nextFaqReplies, sendFaqReply, type FaqPick } from './faq';
 import { buildFormConfirmation } from './formConfirmation';
-import { handsOffEveryFile, mediaNotices, newInbound, repliesToUnreadable } from './guardrails';
+import { acceptsEveryFile, mediaNotices, newInbound, repliesToUnreadable } from './guardrails';
 import { classificationEvent, fireCrm } from './crm';
 import {
   explanationMessages, explanationReady, receptionFor, sendReception, splitAroundExplanation, type ExplanationState,
@@ -50,6 +50,7 @@ export async function intake(ctx: TurnContext, msg: StoredMessage, hasVision: bo
   if (type === 'video') return 'schedule';
   // áudio que não deu pra transcrever / arquivo que não dá pra ler: aviso fixo e segue o fluxo (se configurado)
   if (type === 'audio' && repliesToUnreadable(ctx.agent, 'audio')) return 'schedule';
+  if ((type === 'image' || type === 'document') && acceptsEveryFile(ctx.agent)) return 'schedule';
   if ((type === 'image' || type === 'document') && repliesToUnreadable(ctx.agent, 'file')) return 'schedule';
   if (type !== 'text') {
     await handOff(ctx, 'media_received');
@@ -109,9 +110,18 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
   // avisos fixos (vídeo, áudio/arquivo que não deu pra usar) para as mensagens novas - calculado
   // antes da recepção, porque depois dela a "última fala do atendimento" muda
   const fresh = newInbound(await store.recentMessages(HISTORY_LIMIT));
-  // kit configurado para passar toda foto/PDF para a equipe: lido (se deu) e já sai do atendimento da IA
+  // kit que aceita toda foto/PDF: cada arquivo conta como o próximo documento do roteiro (sem pedir
+  // reenvio); com todos os documentos recebidos, a conversa vai para a equipe
+  const acceptFiles = acceptsEveryFile(agent);
   const files = fresh.filter((m) => m.type === 'image' || m.type === 'document');
-  if (files.length && handsOffEveryFile(agent)) return handOff(ctx, 'file_received', null, filesSummary(files));
+  if (files.length && acceptFiles) {
+    known = await acceptAsDocuments(ctx, files, known);
+    const allDocs = agent.required_documents.length > 0 && agent.required_documents.every((d) => filled(known[d.key]));
+    // arquivo que a IA não abriu/leu: sem avisar a lead, a equipe confere direto
+    const unread = files.some((m) => !m.aiAnalysis || 'failed' in m.aiAnalysis);
+    if (allDocs) await fireCrm(ctx, 'documentos_completos');
+    if (allDocs || unread) return handOff(ctx, 'file_received', null, filesSummary(files));
+  }
   const notices = mediaNotices(agent, fresh);
   // a lead só mandou mídia que não dá pra usar (nada de texto/áudio/arquivo legível junto)?
   const onlyUnusable = notices.length > 0 && fresh.every((m) =>
@@ -142,12 +152,12 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
     }
   }
 
-  if (!mediaOk && !repliesToUnreadable(agent, 'file')) return handOff(ctx, 'media_received');
+  if (!mediaOk && !repliesToUnreadable(agent, 'file') && !acceptFiles) return handOff(ctx, 'media_received');
   if (notices.length) await sendBubbles(ctx, notices, null);
 
   // 6. histórico
   const messages = await store.recentMessages(HISTORY_LIMIT);
-  const history = buildHistory(messages);
+  const history = buildHistory(messages, acceptFiles);
   if (proactive && !history.some((m) => m.role === 'user')) history.push({ role: 'user', content: PROACTIVE_OPENING_LINE });
   while (history.length && history[history.length - 1].role === 'assistant') history.pop();
   if (history.length === 0) return;
@@ -340,20 +350,24 @@ export async function sendBubbles(ctx: TurnContext, bubbles: string[], abortIfIn
 // Histórico e mídia
 // ---------------------------------------------------------------------------
 
-export function historyLine(msg: StoredMessage, a: MediaAnalysis): string {
+export const FILE_ACCEPTED_LINE = (kind: string) =>
+  `[${kind} enviado pela lead - recebido como documento; a equipe confere o arquivo. Não peça para reenviar.]`;
+
+export function historyLine(msg: StoredMessage, a: MediaAnalysis, accepted = false): string {
   const kind = msg.type === 'image' ? 'Imagem' : 'PDF';
   let line = `[${kind} enviado pela lead - ${a.tipo ?? 'outro'}: ${String(a.resumo ?? '').trim()}.`;
   const fields = Object.entries(a.dados ?? {})
     .filter(([, v]) => ['string', 'number', 'boolean'].includes(typeof v) && String(v) !== '')
     .map(([k, v]) => `${k}: ${typeof v === 'boolean' ? (v ? 'sim' : 'não') : v}`);
   if (fields.length) line += ` Dados lidos: ${fields.join('; ')}.`;
-  if (a.legivel === false) line += ' Arquivo pouco legível - peça para reenviar com mais nitidez.';
+  if (a.legivel === false && !accepted) line += ' Arquivo pouco legível - peça para reenviar com mais nitidez.';
   const caption = msg.body.trim();
   if (caption && !/^\[[A-Za-z ]+\]$/.test(caption)) line += ` Legenda: "${caption}".`;
   return line + ']';
 }
 
-export function buildHistory(messages: StoredMessage[]): ChatMessage[] {
+/** `acceptFiles`: foto/PDF da lead sempre conta como recebido (kit com file_fail_action "accept"). */
+export function buildHistory(messages: StoredMessage[], acceptFiles = false): ChatMessage[] {
   const out: ChatMessage[] = [];
   for (const m of messages) {
     let content: string | null = null;
@@ -361,11 +375,11 @@ export function buildHistory(messages: StoredMessage[]): ChatMessage[] {
     if (m.direction === 'outbound' && (m.type === 'audio' || m.type === 'video')) {
       content = m.transcript ? `[${m.type === 'audio' ? 'Áudio' : 'Vídeo'} enviado pela atendente: "${m.transcript}"]` : null;
     } else if (m.transcript) content = m.transcript;
-    else if (m.aiAnalysis && !('failed' in m.aiAnalysis)) content = historyLine(m, m.aiAnalysis);
+    else if (m.aiAnalysis && !('failed' in m.aiAnalysis)) content = historyLine(m, m.aiAnalysis, acceptFiles && m.direction === 'inbound');
     else if (m.type === 'text') content = m.body;
     else if (m.type === 'video' && m.direction === 'inbound') content = VIDEO_HISTORY_LINE;
     else if (m.type === 'audio' && m.direction === 'inbound') content = AUDIO_FAIL_LINE;
-    else if ((m.type === 'image' || m.type === 'document') && m.direction === 'inbound') content = FILE_FAIL_LINE;
+    else if ((m.type === 'image' || m.type === 'document') && m.direction === 'inbound') content = acceptFiles ? FILE_ACCEPTED_LINE(m.type === 'image' ? 'Imagem' : 'Arquivo') : FILE_FAIL_LINE;
     if (content !== null) out.push({ role: m.direction === 'outbound' ? 'assistant' : 'user', content });
   }
   return out;
@@ -379,6 +393,34 @@ export function filesSummary(files: StoredMessage[]): string {
     return a ? `- ${kind} (${a.tipo ?? 'outro'}): ${String(a.resumo ?? '').trim()}` : `- ${kind}: a IA não conseguiu abrir, conferir no chat.`;
   });
   return `Lead mandou ${files.length === 1 ? 'arquivo' : `${files.length} arquivos`} no WhatsApp:\n${lines.join('\n')}`;
+}
+
+const norm = (t: string) => t.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_-]+/g, ' ').trim();
+
+/**
+ * Cada foto/PDF novo preenche um documento pendente do roteiro: o que a IA reconheceu no arquivo
+ * (tipo = key do documento ou algo da lista "serve") ou, sem reconhecer/sem abrir, o próximo da fila.
+ */
+async function acceptAsDocuments(ctx: TurnContext, files: StoredMessage[], known: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const next = { ...known };
+  const received: string[] = [];
+  for (const m of files) {
+    const pending = ctx.agent.required_documents.filter((d) => !filled(next[d.key]));
+    if (!pending.length) break;
+    const a = m.aiAnalysis && !('failed' in m.aiAnalysis) ? m.aiAnalysis : null;
+    const tipo = a?.tipo ? norm(a.tipo) : '';
+    const doc = (tipo && pending.find((d) => norm(d.key) === tipo || d.accepted.some((x) => norm(x).includes(tipo)))) || pending[0];
+    const kind = m.type === 'image' ? 'Foto' : 'Arquivo';
+    next[doc.key] = a ? `${kind} recebida - ${String(a.resumo ?? '').trim()}`.slice(0, 300) : `${kind} recebida (conferir no chat)`;
+    received.push(doc.key);
+  }
+  if (!received.length) return known;
+  await ctx.store.saveKnownFields(next);
+  for (const k of received) {
+    const d = ctx.agent.required_documents.find((x) => x.key === k)!;
+    await fireCrm(ctx, `documento_recebido:${k}`, d.label);
+  }
+  return next;
 }
 
 async function analyzePendingMedia(ctx: TurnContext): Promise<boolean> {

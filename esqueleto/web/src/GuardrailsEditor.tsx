@@ -68,12 +68,14 @@ export default function GuardrailsEditor({ value, onChange }: { value: Guardrail
         <div className="seg seg-3">
           <button type="button" className={(value.file_fail_action ?? 'reply') === 'reply' ? 'on' : ''} onClick={() => set({ file_fail_action: 'reply' })}>Ilegível: avisar e pedir de novo</button>
           <button type="button" className={value.file_fail_action === 'handoff' ? 'on' : ''} onClick={() => set({ file_fail_action: 'handoff' })}>Ilegível: passar para a equipe</button>
-          <button type="button" className={value.file_fail_action === 'handoff_always' ? 'on' : ''} onClick={() => set({ file_fail_action: 'handoff_always' })}>Sempre passar para a equipe</button>
+          <button type="button" className={value.file_fail_action === 'accept' ? 'on' : ''} onClick={() => set({ file_fail_action: 'accept' })}>Aceitar sempre e pedir o próximo</button>
         </div>
         {(value.file_fail_action ?? 'reply') === 'reply' && (
           <textarea rows={2} value={value.file_fail_reply ?? ''} onChange={(e) => set({ file_fail_reply: e.target.value || null })} />
         )}
-        <small>Foto legível mas borrada é diferente: a IA já pede para reenviar com mais nitidez.</small>
+        <small>{value.file_fail_action === 'accept'
+          ? 'Toda foto/PDF conta como o próximo documento do roteiro (nunca pede reenvio). Lida: a IA pede o próximo e, com todos recebidos, passa para a equipe. Não deu pra ler: passa direto para a equipe, sem avisar a lead.'
+          : 'Foto legível mas borrada é diferente: a IA já pede para reenviar com mais nitidez.'}</small>
       </div>
     </>
   );
