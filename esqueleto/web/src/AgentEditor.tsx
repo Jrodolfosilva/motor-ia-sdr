@@ -4,6 +4,10 @@ import ExplanationEditor, { emptyExplanation } from './ExplanationEditor';
 import GuardrailsEditor, { emptyGuardrails } from './GuardrailsEditor';
 import CrmEditor, { emptyCrm } from './CrmEditor';
 import PublicLinkCard from './PublicLinkCard';
+import {
+  Braces, Cable, ClipboardList, FileText, FlagTriangleRight, HandMetal, HelpCircle, Kanban, Lightbulb, Link2, MessageSquareText, Repeat, Settings2, ShieldCheck, Tags,
+  type LucideIcon,
+} from 'lucide-react';
 import IntegrationEditor from './IntegrationEditor';
 import {
   api, type AgentConfig, type PublicLink, type Reception, type ReceptionMessage, type ClassificationLabel, type DocumentFileType, type FollowUpStep, type KitFile, type TestLeadKind, type RequiredDocument, type Rule, type RuleOperator, type WhatsAppTemplate,
@@ -12,22 +16,22 @@ import {
 type Section = 'geral' | 'conduta' | 'crm' | 'integracao' | 'recepcao' | 'explicacao' | 'prompt' | 'mensagens' | 'perguntas' | 'documentos' | 'classificacao' | 'faq' | 'followup' | 'publico' | 'json';
 
 /** Seções na ordem das etapas da conversa; `group` vira um subtítulo no menu. */
-const SECTIONS: { id: Section; label: string; group?: string }[] = [
-  { id: 'geral', label: 'Geral e modelos', group: 'Agente' },
-  { id: 'prompt', label: 'System prompt' },
-  { id: 'conduta', label: 'Conduta e limites' },
-  { id: 'faq', label: 'FAQ' },
-  { id: 'recepcao', label: '1. Recepção', group: 'Etapas da conversa' },
-  { id: 'perguntas', label: '2. Perguntas' },
-  { id: 'explicacao', label: '3. Explicação' },
-  { id: 'documentos', label: '4. Documentos' },
-  { id: 'classificacao', label: '5. Classificação' },
-  { id: 'mensagens', label: '6. Encerramento' },
-  { id: 'followup', label: 'Follow-up (inatividade)' },
-  { id: 'crm', label: 'CRM / Kanban', group: 'Integração' },
-  { id: 'integracao', label: 'Fale Fácil + Bitrix' },
-  { id: 'publico', label: 'Link público e teste', group: 'Teste' },
-  { id: 'json', label: 'JSON bruto', group: 'Avançado' },
+const SECTIONS: { id: Section; label: string; icon: LucideIcon; group?: string }[] = [
+  { id: 'geral', icon: Settings2, label: 'Geral e modelos', group: 'Agente' },
+  { id: 'prompt', icon: MessageSquareText, label: 'System prompt' },
+  { id: 'conduta', icon: ShieldCheck, label: 'Conduta e limites' },
+  { id: 'faq', icon: HelpCircle, label: 'FAQ' },
+  { id: 'recepcao', icon: HandMetal, label: '1. Recepção', group: 'Etapas da conversa' },
+  { id: 'perguntas', icon: ClipboardList, label: '2. Perguntas' },
+  { id: 'explicacao', icon: Lightbulb, label: '3. Explicação' },
+  { id: 'documentos', icon: FileText, label: '4. Documentos' },
+  { id: 'classificacao', icon: Tags, label: '5. Classificação' },
+  { id: 'mensagens', icon: FlagTriangleRight, label: '6. Encerramento' },
+  { id: 'followup', icon: Repeat, label: 'Follow-up (inatividade)' },
+  { id: 'crm', icon: Kanban, label: 'CRM / Kanban', group: 'Integração' },
+  { id: 'integracao', icon: Cable, label: 'Fale Fácil + Bitrix' },
+  { id: 'publico', icon: Link2, label: 'Link público e teste', group: 'Teste' },
+  { id: 'json', icon: Braces, label: 'JSON bruto', group: 'Avançado' },
 ];
 
 const OPERATORS: { op: RuleOperator; label: string; value: 'none' | 'number' | 'list' | 'between' }[] = [
@@ -334,7 +338,7 @@ export default function AgentEditor({ agentKey, onSaved }: { agentKey: string; o
         {SECTIONS.map((s) => (
           <div key={s.id} className="nav-entry">
             {s.group && <div className="nav-group">{s.group}</div>}
-            <button className={section === s.id ? 'on' : ''} onClick={() => setSection(s.id)}>{s.label}</button>
+            <button className={section === s.id ? 'on' : ''} onClick={() => setSection(s.id)}><s.icon size={16} strokeWidth={1.9} />{s.label}</button>
           </div>
         ))}
         {!loaded.hasApiKey && <div className="warn">TOGETHER_API_KEY não definida no backend. O simulador não vai conseguir chamar o LLM.</div>}
