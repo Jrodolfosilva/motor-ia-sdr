@@ -56,10 +56,10 @@ describe('webhook do Fale Fácil', () => {
 });
 
 describe('templates', () => {
-  it('preenche variáveis com primeiro nome e dados da lead', () => {
+  it('preenche variáveis com dados da lead; {nome} nunca usa o nome', () => {
     const known = { nome: 'MARIA souza', data_parto: '12/03/2027' };
-    expect(templateParams(tpl, known)).toEqual(['Maria', '12/03/2027']);
-    expect(renderTemplate(tpl, known)).toBe('Olá, Maria! Vi que sua previsão é 12/03/2027. Podemos seguir?');
+    expect(templateParams(tpl, known)).toEqual(['tudo bem', '12/03/2027']);
+    expect(renderTemplate(tpl, known)).toBe('Olá, tudo bem! Vi que sua previsão é 12/03/2027. Podemos seguir?');
     expect(templateVarCount(tpl.body)).toBe(2);
   });
   it('variável vazia não vai vazia (a Meta recusa)', () => {
@@ -94,7 +94,7 @@ describe('follow-up fora da janela de 24h', () => {
   }
 
   it('janela aberta: texto', async () => {
-    expect((await run(step('t1'), true)).sent).toEqual(['txt:Oi Ana']);
+    expect((await run(step('t1'), true)).sent).toEqual(['txt:Oi']);
   });
   it('janela fechada: template do passo', async () => {
     expect((await run(step('t1'), false)).sent).toEqual(['tpl:atendimento_4']);

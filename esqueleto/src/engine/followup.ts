@@ -58,16 +58,22 @@ export function nextFollowup(
   return { kind: 'exhausted', plan, dueAt: lastAt + Math.max(0, wait) * minuteMs };
 }
 
-function firstName(known: Record<string, unknown>): string {
-  const n = String(known.nome ?? known.full_name ?? known.name ?? '').trim().split(/\s+/)[0] ?? '';
-  return n ? n[0].toUpperCase() + n.slice(1).toLowerCase() : '';
+/**
+ * Texto do passo sem o {nome}: a IA nunca chama a lead pelo nome (o nome do WhatsApp/Bitrix vem
+ * errado com frequência: "Convidado", apelido, nome de outra pessoa).
+ */
+export function renderFollowup(message: string, _known?: Record<string, unknown>): string {
+  return stripNamePlaceholder(message);
 }
 
-/** Texto do passo com {nome} trocado pelo primeiro nome (sem nome: o placeholder some). */
-export function renderFollowup(message: string, known: Record<string, unknown>): string {
-  const name = firstName(known);
-  const out = name ? message.replaceAll('{nome}', name) : message.replace(/,?\s*\{nome\}/g, '');
-  return out.replace(/ +([,!?.])/g, '$1').replace(/ {2,}/g, ' ').trim();
+/** Remove "{nome}" com a vírgula/espaço em volta e acerta a maiúscula do começo. */
+export function stripNamePlaceholder(text: string): string {
+  const leading = /^\s*\{nome\}/.test(text);
+  const out = text
+    .replace(/\s*,?\s*\{nome\}\s*,?/g, ' ')
+    .replace(/ +([,!?.])/g, '$1').replace(/ {2,}/g, ' ').trim()
+    .replace(/^[\s,]+/, '');
+  return leading ? out.replace(/^./, (c) => c.toUpperCase()) : out;
 }
 
 /** Executa o follow-up vencido: envia o passo, ou fecha a sequência (CRM "sem_resposta"). */

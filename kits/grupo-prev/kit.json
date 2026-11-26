@@ -276,7 +276,7 @@
     "required_fields": [
       {
         "key": "situacao_trabalho",
-        "label": "Situação de trabalho hoje. Salve exatamente um destes: \"desempregada\" ou \"empregada registrada\" (trabalha de carteira assinada hoje, inclusive afastada ou de licença). Se for autônoma/MEI ou rural, salve \"autônoma/MEI\" ou \"rural\"",
+        "label": "Situação de trabalho hoje. Salve exatamente um destes: \"desempregada\" ou \"empregada registrada\" (a carteira continua assinada hoje). Se for autônoma/MEI ou rural, salve \"autônoma/MEI\" ou \"rural\". \"Afastada\", \"de licença\", \"encostada\", \"de atestado\" ou \"sem trabalhar\" sozinhos NÃO bastam: não salve nada e marque pendência \"vaga\" até ela dizer se a carteira continua ativa (empregada registrada) ou se já foi desligada (desempregada).",
         "question": "Você está desempregada hoje?",
         "confirm_question": "Pelo seu cadastro, hoje você está {valor}, certo?",
         "why": "Isso define quem pede o benefício: quem está desempregada pede pelo INSS (e é aí que a gente entra); quem está de carteira assinada recebe pela empresa.",

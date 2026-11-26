@@ -12,16 +12,11 @@ export function windowOpen(lastInboundAt: number | null, now = Date.now()): bool
   return lastInboundAt != null && now - lastInboundAt < WINDOW_MS - WINDOW_MARGIN_MS;
 }
 
-const firstName = (known: Record<string, unknown>) => {
-  const n = String(known.nome ?? known.full_name ?? known.name ?? '').trim().split(/\s+/)[0] ?? '';
-  return n ? n[0].toUpperCase() + n.slice(1).toLowerCase() : '';
-};
-
 /** Valor de um parâmetro: "{nome}", "{campo:<key>}" ou texto fixo. Vazio vira "-" (a Meta recusa parâmetro vazio). */
 export function templateParam(spec: string, known: Record<string, unknown>): string {
   const s = (spec ?? '').trim();
   let v = s;
-  if (s === '{nome}') v = firstName(known);
+  if (s === '{nome}') v = ''; // nunca usa o nome da lead: vira "tudo bem" (a Meta recusa parâmetro vazio)
   else {
     const m = /^\{campo:([^}]+)\}$/.exec(s);
     if (m) v = String(known[m[1]] ?? '').trim();

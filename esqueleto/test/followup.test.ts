@@ -57,8 +57,9 @@ describe('follow-up por etapa', () => {
     expect(nextFollowup(a, known, state({ status: 'handed_off' }), 100, 1)).toBeNull();
   });
 
-  it('{nome} vira o primeiro nome (ou some)', () => {
-    expect(renderFollowup('Oi, {nome}! Tudo bem?', { nome: 'KELLY silva' })).toBe('Oi, Kelly! Tudo bem?');
+  it('{nome} sempre some: a IA nunca chama a lead pelo nome', () => {
+    expect(renderFollowup('Oi, {nome}! Tudo bem?', { nome: 'KELLY silva' })).toBe('Oi! Tudo bem?');
+    expect(renderFollowup('{nome}, conseguiu tirar o print?', { nome: 'Convidado' })).toBe('Conseguiu tirar o print?');
     expect(renderFollowup('Oi, {nome}! Tudo bem?', {})).toBe('Oi! Tudo bem?');
   });
 

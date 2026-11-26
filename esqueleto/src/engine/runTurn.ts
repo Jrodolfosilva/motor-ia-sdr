@@ -12,6 +12,7 @@ import { decide } from './agents/qualifier';
 import { reply } from './agents/responder';
 import { nextFaqReplies, sendFaqReply, type FaqPick } from './faq';
 import { buildFormConfirmation } from './formConfirmation';
+import { normalizeKnownDates } from './rules/dates';
 import { acceptsEveryFile, mediaNotices, newInbound, repliesToUnreadable } from './guardrails';
 import { classificationEvent, fireCrm } from './crm';
 import {
@@ -96,6 +97,11 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
 
   const contact = await store.contact();
   let known = await store.getKnownFields();
+  {
+    // data sem ano ("21 de janeiro") ganha o ano inferido antes de confirmar/calcular prazo
+    const dated = normalizeKnownDates(agent, known, ctx.now);
+    if (dated !== known) { known = dated; await store.saveKnownFields(known); }
+  }
 
   // 3b. fixa o que veio do formulário (Meta/LP): essas perguntas precisam ser confirmadas pelo lead
   let formKeys = state.formKeys ?? new RequiredFieldsStatus(agent.required_fields, known).filledQuestionKeys();
@@ -185,7 +191,7 @@ export async function runTurn(ctx: TurnContext): Promise<void> {
       const normalized = Object.fromEntries(
         Object.entries(ex.collected).map(([k, v]) => [k, typeof v === 'string' ? normalizeDuration(v) : v]),
       );
-      known = { ...known, ...normalized };
+      known = normalizeKnownDates(agent, { ...known, ...normalized }, ctx.now);
       await store.saveKnownFields(known);
     }
 

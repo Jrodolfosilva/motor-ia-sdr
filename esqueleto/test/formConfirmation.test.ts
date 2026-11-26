@@ -28,7 +28,7 @@ const known = {
 describe('confirmação do formulário em mensagem pronta', () => {
   it('lista pergunta em negrito e resposta, na ordem do formulário, sem nome/e-mail', () => {
     expect(buildFormConfirmation(agent(), known)).toBe([
-      'Kelly, pode confirmar se os dados estão corretos?',
+      'Pode confirmar se os dados estão corretos?',
       '*Você está desempregada hoje:* Estou desempregada!\n*Você está grávida atualmente:* Sim!\n*Previsão do parto:* 12/03/2027',
     ].join('\n\n'));
     expect(buildFormConfirmation(agent({ form_confirmation: { enabled: false } }), known)).toBeNull();

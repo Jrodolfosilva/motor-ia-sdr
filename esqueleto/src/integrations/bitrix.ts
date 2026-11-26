@@ -184,6 +184,10 @@ export function humanAuthor(messages: any[], users: any[], since: Date): string 
 export function leadValue(lead: Record<string, any>, code: string, field?: BitrixField): string {
   const v = lead[code];
   if (v == null || v === '' || v === false) return '';
+  // checkbox (sim/não): marcado = "sim"; desmarcado = vazio (não dá pra saber se ela respondeu "não")
+  if (field?.type === 'boolean') return ['1', 'y', 'true', 'sim'].includes(String(v).toLowerCase()) ? 'sim' : '';
+  // "0" sem tipo numérico é campo vazio do formulário, não uma resposta (aparecia "Recebeu seguro-desemprego: 0")
+  if (String(v).trim() === '0' && field?.type !== 'integer' && field?.type !== 'double') return '';
   if (Array.isArray(v)) {
     return v.map((x) => (x && typeof x === 'object' ? x.VALUE ?? '' : field?.items?.find((i) => i.id === String(x))?.value ?? x)).filter(Boolean).join(', ');
   }

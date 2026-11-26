@@ -72,11 +72,21 @@ function insistInfo(status: RequiredFieldsStatus, key: string, why?: string | nu
   ].filter(Boolean).map((l) => `\n    ${l}`).join('');
 }
 
+/** Chaves de nome da lead: ficam fora do prompt. */
+const NAME_KEYS = new Set(['nome', 'name', 'full_name', 'first_name', 'last_name', 'nome_completo']);
+const withoutName = (known: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(known).filter(([k]) => !NAME_KEYS.has(k.toLowerCase())));
+
+/** Regra fixa do motor (vale para todo agente, acima do system prompt). */
+export const NO_NAME_RULE =
+  'NOME DA LEAD (regra fixa, sem exceção): NUNCA chame a lead pelo nome nem por apelido, nem se ela disser o nome ou ele aparecer no formulário, no perfil do WhatsApp ou numa mensagem. O nome que chega costuma vir errado ("Convidado", nome de outra pessoa, emoji). Cumprimente e fale sem nome ("Oi! Tudo bem? 🥰", "Entendi, obrigada 🥰").';
+
 export function buildResponderPrompt(
   agent: Agent, known: Record<string, unknown>, isFirstTurn: boolean, phone: string | null,
   media: MediaItem[], now?: Date, progress: RoteiroProgress = {}, explanation: ExplanationState = 'off',
   notices: string[] = [], onlyUnusable = false, faqNext: Record<number, FaqPick> = {},
 ): string {
+  known = withoutName(known); // o nome não chega à IA: ela nunca chama a lead pelo nome
   const parts: string[] = [agent.system_prompt, timeContextLine(phone, now)];
   const kit = agent.kit;
 
@@ -93,7 +103,7 @@ export function buildResponderPrompt(
 
   const status = new RequiredFieldsStatus(agent.required_fields, known, agent.required_documents, progress);
   parts.push(status.hasAnyKnownData()
-    ? 'MODO DE ATENDIMENTO - LEAD DE FORMULÁRIO (pré-qualificado): este lead já respondeu um formulário (anúncio/landing page). NÃO pergunte do zero o que já temos. Cumprimente pelo nome (se houver), mostre em UMA mensagem curta os dados que vieram do formulário e peça para ela confirmar (ex: "Vi aqui que ..., confere?"). Depois da confirmação, o foco é pedir os DOCUMENTOS que comprovam essas informações, um por vez, explicando onde conseguir quando ela não souber. Perguntas que ainda faltam entram no meio, uma de cada vez.'
+    ? 'MODO DE ATENDIMENTO - LEAD DE FORMULÁRIO (pré-qualificado): este lead já respondeu um formulário (anúncio/landing page). NÃO pergunte do zero o que já temos. Cumprimente sem usar nome, mostre em UMA mensagem curta os dados que vieram do formulário e peça para ela confirmar (ex: "Vi aqui que ..., confere?"). Depois da confirmação, o foco é pedir os DOCUMENTOS que comprovam essas informações, um por vez, explicando onde conseguir quando ela não souber. Perguntas que ainda faltam entram no meio, uma de cada vez.'
     : 'MODO DE ATENDIMENTO - LEAD FRIO (volume, sem cadastro): faça a pré-qualificação completa. Recepção calorosa, colete as PERGUNTAS do roteiro UMA por vez e, quando o caso fizer sentido, peça os DOCUMENTOS, um por vez.');
 
   if (kit.faq.length) {
@@ -236,6 +246,7 @@ ${lines}`);
     parts.push('VÍDEO DA LEAD: você não assiste vídeos. Se aparecer "[Vídeo enviado pela lead…]", diga com naturalidade que não consegue abrir vídeo por aqui, peça para mandar por texto/áudio/foto e siga o roteiro.');
   }
 
+  parts.push(NO_NAME_RULE);
   return parts.join('\n\n');
 }
 

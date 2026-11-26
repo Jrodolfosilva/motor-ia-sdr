@@ -383,7 +383,7 @@ describe('abertura por template (WhatsApp oficial)', () => {
     const s = createSession('a', '5511999990000', { nome: 'Maria', data_saida_ctps: '01/08/2026' });
     const ctx = buildSimulatorContext(s, a, fakeLlm({}), noVision);
     await openWithTemplate(ctx, tpl);
-    expect(texts(s)).toEqual(['Olá, Maria! Posso confirmar seus dados?']);
+    expect(texts(s)).toEqual(['Olá, tudo bem! Posso confirmar seus dados?']);
     expect(s.crm.stageId).toBe('tpl');
 
     appendUser(s, { type: 'text', body: 'pode sim' });

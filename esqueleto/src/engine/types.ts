@@ -25,6 +25,11 @@ export interface RequiredField {
    * (ex: seguro-desemprego só se a saída do emprego fica a 12+ meses do parto). Vazio = sempre.
    */
   ask_if?: Rule[] | null;
+  /**
+   * Campo de data: 'past' (saída, nascimento) ou 'future' (previsão do parto). Data sem ano ganha o ano
+   * inferido. Vazio = deduz pela chave (saida/nascimento/parto/previsao).
+   */
+  date_kind?: 'past' | 'future' | null;
 }
 
 export type DocumentFileType = 'image' | 'pdf';
