@@ -1,6 +1,6 @@
 // Tela de login do painel: e-mail + código de 6 dígitos do app autenticador.
 import { FormEvent, useState } from 'react';
-import { Activity, KeyRound } from 'lucide-react';
+import { Bot, KeyRound } from 'lucide-react';
 import { api, type AuthUser } from './api';
 
 export default function Login({ onLogin }: { onLogin: (u: AuthUser) => void }) {
@@ -27,7 +27,7 @@ export default function Login({ onLogin }: { onLogin: (u: AuthUser) => void }) {
     <div className="login-page">
       <form className="card login-card" onSubmit={submit}>
         <div className="login-logo">
-          <span className="logo-mark"><Activity size={22} strokeWidth={2.2} /></span>
+          <span className="logo-mark"><Bot size={22} strokeWidth={2} /></span>
           <div>
             <strong>hub ia</strong>
             <small>motor de atendimento</small>

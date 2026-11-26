@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, Bot, Calculator, Layers, LogOut, MessageCircle, Menu, X } from 'lucide-react';
+import { Bot, Calculator, Layers, LogOut, MessageCircle, Menu, X } from 'lucide-react';
 import Simulator from './Simulator';
 import Login from './Login';
 import { api, setKitKey, type AgentSummary, type AuthUser } from './api';
@@ -84,7 +84,7 @@ function Panel({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
     <div className={`shell${menuOpen ? ' menu-open' : ''}`}>
       <header className="topbar">
         <div className="logo">
-          <span className="logo-mark"><Activity size={18} strokeWidth={2.2} /></span>
+          <span className="logo-mark"><Bot size={20} strokeWidth={2} /></span>
           <span className="logo-text">
             <strong>hub ia</strong>
             <small>motor de atendimento</small>
