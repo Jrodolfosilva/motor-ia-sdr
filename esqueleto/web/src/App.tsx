@@ -83,6 +83,7 @@ function Panel({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   return (
     <div className={`shell${menuOpen ? ' menu-open' : ''}`}>
       <header className="topbar">
+        <div className="topbar-inner">
         <div className="logo">
           <span className="logo-mark"><Bot size={20} strokeWidth={2} /></span>
           <span className="logo-text">
@@ -119,6 +120,7 @@ function Panel({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
             </span>
             <button className="icon-btn" onClick={onLogout} aria-label="Sair" title="Sair"><LogOut size={16} /></button>
           </div>
+        </div>
         </div>
       </header>
 
