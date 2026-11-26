@@ -6,7 +6,7 @@ import {
   api, defaultIntegration, type BitrixCatalog, type CrmStage, type FieldMapping, type IntegrationConfig, type IntegrationInfo,
   type LiveConversation, type RequiredField, type WhatsAppTemplate,
 } from './api';
-import { LiveReport } from './LiveReport';
+import { AiHealthCard, LiveReport } from './LiveReport';
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const varCount = (body: string) => Math.max(0, ...[...(body ?? '').matchAll(/\{\{\s*(\d+)\s*\}\}/g)].map((m) => Number(m[1])));
@@ -128,6 +128,8 @@ export default function IntegrationEditor({ agentKey, value, templates, openingI
         webhook do Fale Fácil; o motor acha o lead pelo telefone, roda o mesmo fluxo do simulador e responde pelo Fale Fácil.
       </p>
       {err && <div className="alert warning">{err}</div>}
+
+      <AiHealthCard agentKey={agentKey} />
 
       <div className="fu-box">
         <label className="f f-check" style={{ paddingTop: 0 }}>
@@ -345,13 +347,13 @@ export default function IntegrationEditor({ agentKey, value, templates, openingI
         Copiar as mensagens da IA na timeline do lead (a API oficial não mostra no chat do Bitrix o que a IA envia).
       </label>
 
-      <h3>5. Conversas reais</h3>
+      <h3>5. Conversas reais de hoje</h3>
       <div className="int-actions">
         <button type="button" className="btn small" onClick={() => run('convs', async () => setConvs((await api.liveConversations(agentKey)).conversations))}>
           <RefreshCw size={13} /> Atualizar
         </button>
       </div>
-      {convs && !convs.length && <p className="muted">Nenhuma conversa real ainda.</p>}
+      {convs && !convs.length && <p className="muted">Nenhuma conversa real hoje.</p>}
       {!!convs?.length && (
         <div className="crm-table">
           {convs.map((c) => (

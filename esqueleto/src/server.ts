@@ -18,7 +18,9 @@ import { audioCostUsd, fxInfo, priceFor, pricesInfo, refreshFx, refreshPrices, t
 import { createMediaAnalyzer } from './engine/agents/mediaAnalyzer';
 import { CRM_EVENTS } from './engine/crm';
 import { createMediaFiles } from './adapters/mediaFiles';
-import { connectAll, disconnectAll } from './db/connection';
+import { connectAll, disconnectAll, redis } from './db/connection';
+import mongoose from 'mongoose';
+import { aiHealth } from './providers/health';
 import {
   createKit, deleteKit, getKit, getPublicLink, KIT_SECTIONS, kitKeyByToken, listKits, NotFound, saveKit, seedKitIfEmpty, setPublicLink,
 } from './adapters/kitRepo';
@@ -210,6 +212,17 @@ app.post('/api/agents', wrap(async (req, res) => {
 }));
 
 app.get('/api/agents/:key', wrap(async (req, res) => { res.json(await agentPayload(String(req.params.key))); }));
+
+/** Ping: IA (chave, crédito e cada modelo do agente) + banco e Redis. Faz uma chamada mínima por modelo. */
+app.get('/api/agents/:key/health', wrap(async (req, res) => {
+  const { agent } = await agentFor(String(req.params.key));
+  const roles = ['responder', 'extractor', 'qualifier', 'vision'] as const;
+  const [ai, redisOk] = await Promise.all([
+    aiHealth(API_KEY, Object.fromEntries(roles.map((r) => [r, modelFor(agent, r)]))),
+    redis.ping().then((x) => x === 'PONG').catch(() => false),
+  ]);
+  res.json({ ...ai, ok: ai.ok && redisOk && mongoose.connection.readyState === 1, mongo: mongoose.connection.readyState === 1, redis: redisOk });
+}));
 
 app.put('/api/agents/:key', wrap(async (req, res) => {
   const key = String(req.params.key);

@@ -136,7 +136,7 @@ export function bitrix(webhookUrl: string, fetchImpl: typeof fetch = fetch): Bit
     },
     async recentLeads(since, max = 500) {
       return all('crm.lead.list', {
-        filter: { '>=DATE_CREATE': since.toISOString() }, order: { DATE_CREATE: 'DESC' },
+        filter: { '>=DATE_CREATE': since.toISOString().replace(/\.\d{3}Z$/, '+00:00') }, order: { DATE_CREATE: 'DESC' },
         select: ['ID', 'TITLE', 'NAME', 'LAST_NAME', 'STATUS_ID', 'SOURCE_ID', 'DATE_CREATE', 'PHONE'],
       }, max);
     },

@@ -360,7 +360,11 @@ export function createRuntime(deps: RuntimeDeps) {
 
   /** Conversas reais do agente (monitor). */
   router.get('/api/agents/:key/integration/conversations', wrap(async (req, res) => {
-    const docs = await PlaygroundSessionModel.find({ agentId: String(req.params.key), 'data.live': { $type: 'object' } })
+    // só conversas com atividade no período (padrão: hoje, desde a meia-noite de Brasília)
+    const days = Math.min(LIVE_LOG_TTL_DAYS, Math.max(1, Number(req.query.days) || 1));
+    const docs = await PlaygroundSessionModel.find({
+      agentId: String(req.params.key), 'data.live': { $type: 'object' }, updatedAt: { $gte: startOfDayBR(days - 1) },
+    })
       .sort({ updatedAt: -1 }).limit(100).lean();
     res.json({
       conversations: docs.map((d) => {
@@ -380,14 +384,15 @@ export function createRuntime(deps: RuntimeDeps) {
 
   /**
    * Relatório dos últimos N dias (máx. 7, o tempo que o log fica guardado): leads criados no Bitrix
-   * × conversas registradas (o lead respondeu? a IA atuou?). Conversas de leads mais antigos vêm em `others`.
+   * × conversas registradas (o lead respondeu? a IA atuou?). Período conta da meia-noite (Brasília): days=1 = só hoje.
+   * Leads criados antes do período ficam de fora, mesmo que tenham conversado nele.
    */
   router.get('/api/agents/:key/integration/report', wrap(async (req, res) => {
     const kitKey = String(req.params.key);
     await deps.agentFor(kitKey);
-    const days = Math.min(LIVE_LOG_TTL_DAYS, Math.max(1, Number(req.query.days) || LIVE_LOG_TTL_DAYS));
-    const since = new Date(Date.now() - days * 86_400_000);
-    const logs = await LiveLogModel.find({ kitKey, lastAt: { $gte: since } }, { messages: 0 }).sort({ startedAt: -1 }).lean();
+    const days = Math.min(LIVE_LOG_TTL_DAYS, Math.max(1, Number(req.query.days) || 1));
+    const since = startOfDayBR(days - 1);
+    const logs = await LiveLogModel.find({ kitKey, startedAt: { $gte: since } }, { messages: 0 }).sort({ startedAt: -1 }).lean();
     const summary = (l: (typeof logs)[number]) => ({
       id: l._id, leadId: l.leadId, leadUrl: l.leadUrl, phone: l.phone, name: l.name, startedAt: l.startedAt, lastAt: l.lastAt,
       status: l.status, classification: l.classification, stage: l.stage, inbound: l.inbound, aiReplies: l.aiReplies,
@@ -427,17 +432,15 @@ export function createRuntime(deps: RuntimeDeps) {
         conversations: convs,
       };
     });
-    const others = [...byLead.values()].flat().concat(logs.filter((l) => !l.leadId).map(summary));
     res.json({
       days, since, bitrixError,
       totals: {
         leads: rows.length,
         replied: rows.filter((r) => r.conversations.some((c) => c.inbound > 0)).length,
         aiActed: rows.filter((r) => r.conversations.some((c) => c.aiReplies > 0)).length,
-        conversations: logs.length,
+        conversations: rows.reduce((n, r) => n + r.conversations.length, 0),
       },
       leads: rows,
-      others,
     });
   }));
 
@@ -457,6 +460,13 @@ export function createRuntime(deps: RuntimeDeps) {
   }));
 
   return { router, liveContext, handleInbound, handleLeadEvent };
+}
+
+/** Meia-noite (horário de Brasília, UTC-3 fixo) de `daysBack` dias atrás. */
+export function startOfDayBR(daysBack = 0, now = new Date()): Date {
+  const br = new Date(now.getTime() - 3 * 3_600_000); // relógio de Brasília lido como UTC
+  const midnight = Date.UTC(br.getUTCFullYear(), br.getUTCMonth(), br.getUTCDate()) + 3 * 3_600_000;
+  return new Date(midnight - daysBack * 86_400_000);
 }
 
 function safeEq(a: string, b: string): boolean {
