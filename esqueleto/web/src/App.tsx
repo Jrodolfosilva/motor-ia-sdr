@@ -89,6 +89,7 @@ function Panel({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
             <strong>hub ia</strong>
             <small>motor de atendimento</small>
           </span>
+          <span className="version">v1.01</span>
         </div>
         <button className="icon-btn menu-btn" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu">
           {menuOpen ? <X size={20} /> : <Menu size={20} />}
