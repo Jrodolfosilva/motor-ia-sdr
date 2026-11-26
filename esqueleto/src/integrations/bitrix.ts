@@ -30,6 +30,11 @@ export interface Bitrix {
   comment(leadId: string | number, text: string): Promise<void>;
   /** A automação do Fale Fácil (robô) já mandou WhatsApp para este lead? */
   sentByAutomation(leadId: string | number): Promise<boolean>;
+  /**
+   * Alguém da equipe falou com o lead no chat do Canal Aberto desde `since`? Retorna o nome (ou null).
+   * Conta operador digitando no Bitrix e envio pelo Fale Fácil Helper ("*Fulano:*"). A IA envia pela API e não aparece no chat.
+   */
+  humanInChat(leadId: string | number, since: Date): Promise<string | null>;
   /** Leads criados a partir de `since` (mais novos primeiro, até `max`). */
   recentLeads(since: Date, max?: number): Promise<Record<string, any>[]>;
 }
@@ -134,6 +139,15 @@ export function bitrix(webhookUrl: string, fetchImpl: typeof fetch = fetch): Bit
       });
       return (r.result ?? []).some((a: any) => /whats/i.test(String(a.SUBJECT ?? '')));
     },
+    async humanInChat(leadId, since) {
+      const chats: any[] = (await call('imopenlines.crm.chat.get', { CRM_ENTITY_TYPE: 'LEAD', CRM_ENTITY: Number(leadId), ACTIVE_ONLY: 'N' })).result ?? [];
+      for (const ch of chats) {
+        const r: any = await call('im.dialog.messages.get', { DIALOG_ID: `chat${ch.CHAT_ID}`, LIMIT: 50 });
+        const name = humanAuthor(r.result?.messages ?? [], r.result?.users ?? [], since);
+        if (name) return name;
+      }
+      return null;
+    },
     async recentLeads(since, max = 500) {
       return all('crm.lead.list', {
         filter: { '>=DATE_CREATE': since.toISOString().replace(/\.\d{3}Z$/, '+00:00') }, order: { DATE_CREATE: 'DESC' },
@@ -141,6 +155,27 @@ export function bitrix(webhookUrl: string, fetchImpl: typeof fetch = fetch): Bit
       }, max);
     },
   };
+}
+
+// ---------- Humano no chat ----------
+
+const HELPER_RE = /^\s*Fale F[áa]cil Helper:\s*\*([^*\n]+):\*/i;
+
+/** Primeira pessoa da equipe que escreveu no chat desde `since` (mensagens do im.dialog.messages.get). */
+export function humanAuthor(messages: any[], users: any[], since: Date): string | null {
+  const byId = new Map(users.map((u) => [Number(u.id), u]));
+  const msgs = [...messages].filter((m) => Date.parse(m.date) >= since.getTime()).sort((a, b) => Number(a.id) - Number(b.id));
+  for (const m of msgs) {
+    const author = Number(m.author_id);
+    if (author > 0) {
+      const u = byId.get(author);
+      if (u && !u.connector && !u.bot && u.external_auth_id !== 'imconnector') return String(u.name ?? `usuário ${author}`);
+      continue;
+    }
+    const h = HELPER_RE.exec(String(m.text ?? ''));
+    if (h) return h[1].trim();
+  }
+  return null;
 }
 
 // ---------- Campos do lead ↔ dados do atendimento ----------

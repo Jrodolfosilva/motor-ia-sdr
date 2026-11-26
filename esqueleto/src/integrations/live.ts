@@ -115,13 +115,31 @@ export function buildLiveContext(
   const stageName = (id: string) => agent.crm?.stages.find((x) => x.id === id)?.name ?? id;
   const labelNames = (ids: string[]) => ids.map((id) => agent.crm?.labels.find((l) => l.id === id)?.name ?? id).join(', ');
 
+  /** Equipe já falou com o lead no chat do Bitrix: a IA sai da conversa (não disputa com o SDR). */
+  const humanTookOver = async (lead: Record<string, any>): Promise<boolean> => {
+    let who: string | null = null;
+    try {
+      who = await bx.humanInChat(leadId!, new Date(Date.parse(lead.DATE_CREATE) || 0));
+    } catch (e) {
+      // sem permissão de chat no webhook: não trava a IA, só avisa
+      await base.pipeline.emitEvent({ kind: 'info', message: `⚠️ Bitrix (ler chat do Canal Aberto): ${(e as Error).message.slice(0, 200)}` });
+      return false;
+    }
+    if (!who) return false;
+    await base.store.saveState({ status: 'handed_off', handoffReason: 'human_takeover' });
+    await base.pipeline.emitEvent({ kind: 'info', message: `⏸️ IA pausada: ${who} já está conversando com o lead.` });
+    await crmSafe('nota', () => bx.comment(leadId!, `⏸️ IA pausada: ${who} já mandou mensagem para este lead no WhatsApp. A IA não responde mais nesta conversa.`));
+    return true;
+  };
+
   const pipeline: PipelinePort = {
     async isInOnboarding() {
       if (!cfg.enabled || s.state.status !== 'active') return false;
       if (!cfg.active_stages.length || !leadId) return !!leadId;
       try {
         const lead = await bx.getLead(leadId);
-        return !!lead && cfg.active_stages.includes(String(lead.STATUS_ID));
+        if (!lead || !cfg.active_stages.includes(String(lead.STATUS_ID))) return false;
+        return !(await humanTookOver(lead));
       } catch (e) {
         await base.pipeline.emitEvent({ kind: 'info', message: `⚠️ Bitrix (etapa do lead): ${(e as Error).message.slice(0, 200)}` });
         return false; // na dúvida não responde
