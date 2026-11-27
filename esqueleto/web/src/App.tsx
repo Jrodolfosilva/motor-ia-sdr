@@ -11,7 +11,7 @@ import CostReport from './CostReport';
 type Tab = 'agents' | 'sim' | 'agent' | 'costs' | 'report';
 
 const HASH: Record<Tab, string> = { agents: 'agentes', sim: 'simulador', agent: 'agente', costs: 'custos', report: 'relatorio' };
-const fromHash = (): Tab => (Object.entries(HASH).find(([, h]) => `#${h}` === location.hash)?.[0] as Tab | undefined) ?? 'sim';
+const fromHash = (): Tab => (Object.entries(HASH).find(([, h]) => `#${h}` === location.hash)?.[0] as Tab | undefined) ?? 'agents';
 
 const NAV: { id: Tab; label: string; icon: typeof Bot }[] = [
   { id: 'agents', label: 'Agentes', icon: Layers },
@@ -44,7 +44,7 @@ export default function App() {
   }, []);
 
   if (user === undefined) return <div className="login-page" />;
-  if (!user) return <Login onLogin={setUser} />;
+  if (!user) return <Login onLogin={(u) => { location.hash = HASH.agents; setUser(u); }} />;
   return <Panel user={user} onLogout={() => { api.logout().finally(() => setUser(null)); }} />;
 }
 
@@ -78,6 +78,8 @@ function Panel({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   // lista de agentes (nomes, link) muda quando se cria/exclui/salva: recarrega ao trocar de aba
   useEffect(() => { refreshAgents(); }, [tab]);
 
+  const current = agents.find((a) => a.key === agentKey);
+
   const open = (key: string, t: Tab) => {
     selectAgent(key);
     location.hash = HASH[t];
@@ -87,14 +89,9 @@ function Panel({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
     <div className={`shell${menuOpen ? ' menu-open' : ''}`}>
       <header className="topbar">
         <div className="topbar-inner">
-        <div className="logo">
-          <span className="logo-mark"><Bot size={20} strokeWidth={2} /></span>
-          <span className="logo-text">
-            <strong>hub ia</strong>
-            <small>motor de atendimento</small>
-          </span>
-          <span className="version">v1.01</span>
-        </div>
+        <a className="logo" href={`#${HASH.agents}`} title="Agentes · v1.01" aria-label="Agentes">
+          <Bot className="logo-bot" strokeWidth={1.6} />
+        </a>
         <button className="icon-btn menu-btn" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu">
           {menuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
@@ -107,14 +104,6 @@ function Panel({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
           ))}
         </nav>
         <div className="topbar-right">
-          {agents.length > 0 && (
-            <label className="agent-picker">
-              <small>Agente</small>
-              <select value={agentKey} onChange={(e) => selectAgent(e.target.value)}>
-                {agents.map((a) => <option key={a.key} value={a.key}>{a.name}{a.template ? ' (template)' : ''}</option>)}
-              </select>
-            </label>
-          )}
           <div className="user-chip">
             <span className="user-avatar">{initials(user.name)}</span>
             <span className="user-meta">
@@ -133,6 +122,12 @@ function Panel({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
             <h1>{TITLES[tab].title}</h1>
             <p>{TITLES[tab].sub}</p>
           </section>
+          {tab !== 'agents' && current && (
+            <div className="current-agent">
+              <span>Agente: <strong>{current.name}</strong>{current.template ? ' (template)' : ''}</span>
+              <a href={`#${HASH.agents}`}>trocar</a>
+            </div>
+          )}
           {tab === 'agents' && <Agents current={agentKey} onOpen={open} />}
           {agentKey && (
             <>
