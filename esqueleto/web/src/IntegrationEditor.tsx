@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Copy, RefreshCw, Trash2 } from 'lucide-react';
 import {
   api, defaultIntegration, type BitrixCatalog, type CrmStage, type FieldMapping, type IntegrationConfig, type IntegrationInfo,
-  type LiveConversation, type RequiredField, type WhatsAppTemplate,
+  type RequiredField, type WhatsAppTemplate,
 } from './api';
 import { AiHealthCard, LiveReport } from './LiveReport';
 
@@ -81,7 +81,6 @@ export default function IntegrationEditor({ agentKey, value, templates, openingI
   const [catalog, setCatalog] = useState<BitrixCatalog | null>(null);
   const [test, setTest] = useState<Record<string, { ok: boolean; detail: string }> | null>(null);
   const [account, setAccount] = useState<any[] | null>(null);
-  const [convs, setConvs] = useState<LiveConversation[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState('');
 
@@ -92,7 +91,6 @@ export default function IntegrationEditor({ agentKey, value, templates, openingI
 
   useEffect(() => {
     api.integration(agentKey).then(setInfo).catch((e) => setErr(e.message));
-    api.liveConversations(agentKey).then((r) => setConvs(r.conversations)).catch(() => {});
   }, [agentKey]);
 
   const saveSecret = (k: 'falefacil_api_key' | 'falefacil_webhook_token' | 'bitrix_webhook_url') => async (v: string) => {
@@ -115,7 +113,6 @@ export default function IntegrationEditor({ agentKey, value, templates, openingI
   };
 
   const setTpl = (i: number, patch: Partial<WhatsAppTemplate>) => onChange({ templates: templates.map((t, j) => (j === i ? { ...t, ...patch } : t)) });
-  const stageName = (id: string) => catalog?.stages.find((s) => s.id === id)?.name ?? id;
   const fieldLabel = (code: string) => catalog?.fields.find((f) => f.code === code)?.label ?? code;
   const setMap = (i: number, patch: Partial<FieldMapping>) => set({ field_map: cfg.field_map.map((m, j) => (j === i ? { ...m, ...patch } : m)) });
   const keyOptions = ['nome', ...fields.map((f) => f.key)];
@@ -346,31 +343,6 @@ export default function IntegrationEditor({ agentKey, value, templates, openingI
         <input type="checkbox" checked={cfg.mirror_to_timeline} onChange={(e) => set({ mirror_to_timeline: e.target.checked })} />
         Copiar as mensagens da IA na timeline do lead (a API oficial não mostra no chat do Bitrix o que a IA envia).
       </label>
-
-      <h3>5. Conversas reais de hoje</h3>
-      <div className="int-actions">
-        <button type="button" className="btn small" onClick={() => run('convs', async () => setConvs((await api.liveConversations(agentKey)).conversations))}>
-          <RefreshCw size={13} /> Atualizar
-        </button>
-      </div>
-      {convs && !convs.length && <p className="muted">Nenhuma conversa real hoje.</p>}
-      {!!convs?.length && (
-        <div className="crm-table">
-          {convs.map((c) => (
-            <div key={c.id} className="crm-row int-conv">
-              <span className="crm-event">
-                <strong>{c.phone} {c.leadUrl && <a href={c.leadUrl} target="_blank" rel="noreferrer">lead #{c.leadId}</a>}</strong>
-                <small>{c.status}{c.classification ? ` · ${c.classification}` : ''}{c.stage ? ` · ${stages.find((s) => s.id === c.stage)?.name ?? stageName(c.stage)}` : ''} · {c.messages} msgs · {new Date(c.updatedAt).toLocaleString('pt-BR')}</small>
-                {c.last && <small className="muted">{c.last.role === 'user' ? 'Lead' : 'IA'}: {c.last.body || `[${c.last.type}]`}</small>}
-              </span>
-              <button type="button" className="btn small danger" title="Apaga só o registro aqui; a próxima mensagem recomeça do zero"
-                onClick={() => { if (confirm(`Apagar a conversa de ${c.phone} aqui? (não mexe no WhatsApp nem no Bitrix)`)) run('del', async () => { await api.resetLiveConversation(agentKey, c.id); setConvs(convs.filter((x) => x.id !== c.id)); }); }}>
-                Recomeçar
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
 
       <LiveReport agentKey={agentKey} />
     </>
