@@ -25,7 +25,7 @@ import {
   createKit, deleteKit, getKit, getPublicLink, KIT_SECTIONS, kitKeyByToken, listKits, NotFound, saveKit, seedKitIfEmpty, setPublicLink,
 } from './adapters/kitRepo';
 import { sessionRepo } from './adapters/sessionRepo';
-import { backfillLiveLogs } from './adapters/liveLog';
+import { backfillLiveLogs, backfillLiveStats } from './adapters/liveLog';
 import { getObject, objectKeyFor, putObject, sendObject } from './adapters/storage';
 import { allowHit } from './adapters/rateLimit';
 import { authRouter, currentUser, requireAdmin } from './auth/auth';
@@ -709,6 +709,7 @@ async function main() {
   await connectAll();
   await seedKitIfEmpty(KIT_SEED);
   backfillLiveLogs().then((n) => n && console.log(`log de conversas: ${n} conversa(s) recente(s) copiada(s)`)).catch((e) => console.error('log de conversas (backfill)', e));
+  backfillLiveStats().then((n) => n && console.log(`relatório de custos: ${n} conversa(s) resumida(s)`)).catch((e) => console.error('relatório de custos (backfill)', e));
   setInterval(() => sessionRepo.evictIdle((id) => !!turns.get(id)?.running || !!subscribers.get(id)?.size), 5 * 60 * 1000).unref();
   setInterval(() => { sweepFollowups().catch((e) => console.error('varredura de follow-up', e)); }, FOLLOWUP_SWEEP_MS).unref();
 

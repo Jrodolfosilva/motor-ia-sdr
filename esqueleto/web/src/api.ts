@@ -266,6 +266,29 @@ export interface AiHealth {
   ok: boolean; checkedAt: string; mongo: boolean; redis: boolean;
   models: { model: string; roles: string[]; status: string; ok: boolean; ms: number; detail: string }[];
 }
+export type CostOutcome = 'qualified' | 'disqualified' | 'team' | 'open' | 'no_reply';
+
+export interface CostReport {
+  from: string; to: string;
+  fx: { rate: number; source: string; quotedAt: string | null };
+  prices: { loadedAt: string | null; error: string | null };
+  unpriced: string[];
+  totals: {
+    conversations: number; replied: number; aiActed: number; inbound: number; aiReplies: number; outbound: number;
+    qualified: number; disqualified: number; team: number; open: number; noReply: number;
+    usd: number; brl: number; input: number; output: number; audioSeconds: number;
+    perConversationBrl: number; perAiConversationBrl: number; perQualifiedBrl: number;
+  };
+  byStep: { step: string; label: string; model: string; calls: number; input: number; output: number; cached: number; seconds: number; usd: number; brl: number }[];
+  byClassification: { key: string; label: string; outcome: CostOutcome; count: number }[];
+  byDay: { date: string; conversations: number; qualified: number; disqualified: number; usd: number; brl: number }[];
+  conversations: {
+    id: string; leadId: string | null; leadUrl: string | null; name: string | null; phone: string; startedAt: string; lastAt: string;
+    outcome: CostOutcome; classification: string | null; classificationLabel: string | null; handoffReason: string | null;
+    inbound: number; aiReplies: number; outbound: number; usd: number; brl: number;
+  }[];
+}
+
 export interface LiveReport {
   days: number; since: string; bitrixError: string | null;
   totals: { leads: number; replied: number; aiActed: number; conversations: number };
@@ -465,6 +488,8 @@ export const api = {
     req<{ ok: true }>(`/api/agents/${encodeURIComponent(key)}/integration/conversations/${encodeURIComponent(id)}`, undefined, 'DELETE'),
   health: (key: string) => req<AiHealth>(`/api/agents/${encodeURIComponent(key)}/health`),
   liveReport: (key: string, days = 1) => req<LiveReport>(`/api/agents/${encodeURIComponent(key)}/integration/report?days=${days}`),
+  costReport: (key: string, from: string, to: string) =>
+    req<CostReport>(`/api/agents/${encodeURIComponent(key)}/integration/cost-report?from=${from}&to=${to}`),
   liveLog: (key: string, id: string) => req<LiveLog>(`/api/agents/${encodeURIComponent(key)}/integration/logs/${encodeURIComponent(id)}`),
   /** Página do link público: só nome, documentos e lead de teste, sem prompt/config. */
   getPublicAgent: (token: string) => req<PublicAgent>(`/api/public/agent?t=${encodeURIComponent(token)}`),

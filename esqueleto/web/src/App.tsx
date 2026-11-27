@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Bot, Calculator, Layers, LogOut, MessageCircle, Menu, X } from 'lucide-react';
+import { BarChart3, Bot, Calculator, Layers, LogOut, MessageCircle, Menu, X } from 'lucide-react';
 import Simulator from './Simulator';
 import Login from './Login';
 import { api, setKitKey, type AgentSummary, type AuthUser } from './api';
 import AgentEditor from './AgentEditor';
 import Agents from './Agents';
 import CostEstimator from './CostEstimator';
+import CostReport from './CostReport';
 
-type Tab = 'agents' | 'sim' | 'agent' | 'costs';
+type Tab = 'agents' | 'sim' | 'agent' | 'costs' | 'report';
 
-const HASH: Record<Tab, string> = { agents: 'agentes', sim: 'simulador', agent: 'agente', costs: 'custos' };
+const HASH: Record<Tab, string> = { agents: 'agentes', sim: 'simulador', agent: 'agente', costs: 'custos', report: 'relatorio' };
 const fromHash = (): Tab => (Object.entries(HASH).find(([, h]) => `#${h}` === location.hash)?.[0] as Tab | undefined) ?? 'sim';
 
 const NAV: { id: Tab; label: string; icon: typeof Bot }[] = [
@@ -17,6 +18,7 @@ const NAV: { id: Tab; label: string; icon: typeof Bot }[] = [
   { id: 'sim', label: 'Simulador', icon: MessageCircle },
   { id: 'agent', label: 'Configuração', icon: Bot },
   { id: 'costs', label: 'Custos', icon: Calculator },
+  { id: 'report', label: 'Relatório', icon: BarChart3 },
 ];
 
 const TITLES: Record<Tab, { title: string; sub: string }> = {
@@ -24,6 +26,7 @@ const TITLES: Record<Tab, { title: string; sub: string }> = {
   sim: { title: 'Simulador', sub: 'Converse como se fosse o lead e acompanhe o que o motor faz a cada turno.' },
   agent: { title: 'Configuração do agente', sub: 'Prompt, roteiro, regras de classificação, mensagens e link público. Salvar aplica na hora.' },
   costs: { title: 'Custos', sub: 'Quanto custa atender N conversas com o agente atual, em reais.' },
+  report: { title: 'Relatório', sub: 'Conversas reais por período: custo da IA, mensagens enviadas e quantas foram qualificadas ou desqualificadas.' },
 };
 
 // agente aberto no painel: lembrado por navegador (conveniência; sem ele cai no primeiro da lista)
@@ -137,6 +140,7 @@ function Panel({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
               <div hidden={tab !== 'sim'}><Simulator key={agentKey} agentKey={agentKey} /></div>
               {tab === 'agent' && <AgentEditor key={agentKey} agentKey={agentKey} onSaved={refreshAgents} />}
               {tab === 'costs' && <CostEstimator key={agentKey} agentKey={agentKey} />}
+              {tab === 'report' && <CostReport key={agentKey} agentKey={agentKey} />}
             </>
           )}
         </main>

@@ -652,6 +652,18 @@ a.wa-file { color: inherit; text-decoration: none; }
 .log-msg small { color: var(--muted); font-size: 11px; }
 @media (max-width: 700px) { .log-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
+/* Relatório geral (aba Relatório) */
+.rep-period { flex-wrap: wrap; align-items: center; }
+.rep-period input[type=date] { width: auto; }
+.rep-sub { margin: 10px 0 0; }
+.rep-outcomes { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.rep-outcomes .ok { border-color: #86efac; }
+.rep-outcomes .bad { border-color: #fca5a5; }
+.log-badge.bad { background: #fee2e2; color: #991b1b; }
+.rep-scroll { overflow-x: auto; }
+.card h3 { margin: 18px 0 4px; font-size: 14px; }
+@media (max-width: 700px) { .rep-outcomes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
 /* Ping da IA */
 .ai-health.ok { border-color: #86efac; }
 .ai-health.bad { border-color: #fca5a5; background: #fef2f2; }

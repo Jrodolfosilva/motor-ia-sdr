@@ -8,7 +8,9 @@ import express from 'express';
 import { createSession, deleteSession, type Session, type SimMessage } from '../adapters/simulator';
 import { objectKeyFor, putObject, sendObject } from '../adapters/storage';
 import { LIVE_LOG_TTL_DAYS, LiveLogModel } from '../db/models/LiveLog';
+import { LiveStatsModel } from '../db/models/LiveStats';
 import { PlaygroundSessionModel } from '../db/models/PlaygroundSession';
+import { audioCostUsd, fxInfo, pricesInfo, refreshFx, tokensCostUsd } from '../providers/pricing';
 import { redis } from '../db/connection';
 import { fireCrm } from '../engine/crm';
 import { intake } from '../engine/runTurn';
@@ -453,6 +455,100 @@ export function createRuntime(deps: RuntimeDeps) {
     });
   }));
 
+  /**
+   * Relatório de custos das conversas reais iniciadas no período (datas de Brasília, `from`/`to` inclusivos,
+   * padrão: últimos 30 dias): custo da IA (tokens + áudio), mensagens e desfecho (qualificada, desqualificada…).
+   * Lê o `live_stats` (sem prazo de validade), não o log de 7 dias.
+   */
+  router.get('/api/agents/:key/integration/cost-report', wrap(async (req, res) => {
+    const kitKey = String(req.params.key);
+    const { agent } = await deps.agentFor(kitKey);
+    await refreshFx();
+    const { from, to } = periodBR(String(req.query.from ?? ''), String(req.query.to ?? ''));
+    const docs = await LiveStatsModel.find({ kitKey, startedAt: { $gte: from, $lt: to } }).sort({ startedAt: -1 }).lean();
+    const { rate } = fxInfo();
+    const labels = new Map(agent.classification_labels.map((l) => [l.key, l]));
+
+    const STEP: Record<string, string> = {
+      extractor: 'Extrator', qualifier: 'Classificador', responder: 'Resposta', vision: 'Leitura de arquivo', transcription: 'Transcrição de áudio',
+    };
+    const byStep = new Map<string, { step: string; label: string; model: string; calls: number; input: number; output: number; cached: number; seconds: number; usd: number }>();
+    const unpriced = new Set<string>();
+    const byClass = new Map<string, { key: string; label: string; outcome: string; count: number }>();
+    const byDay = new Map<string, { date: string; conversations: number; qualified: number; disqualified: number; usd: number }>();
+    const T = { conversations: 0, replied: 0, aiActed: 0, inbound: 0, aiReplies: 0, outbound: 0, qualified: 0, disqualified: 0, team: 0, open: 0, noReply: 0, usd: 0, input: 0, output: 0, audioSeconds: 0 };
+
+    const conversations = docs.map((d) => {
+      let usd = 0;
+      for (const u of d.usage ?? []) {
+        const c = u.usd ?? tokensCostUsd(u.model, u);
+        if (c === null) unpriced.add(u.model);
+        usd += c ?? 0;
+        const k = `${u.step}|${u.model}`;
+        const g = byStep.get(k) ?? { step: u.step, label: STEP[u.step] ?? u.step, model: u.model, calls: 0, input: 0, output: 0, cached: 0, seconds: 0, usd: 0 };
+        g.calls += u.calls; g.input += u.input; g.output += u.output; g.cached += u.cached; g.usd += c ?? 0;
+        byStep.set(k, g);
+        T.input += u.input; T.output += u.output;
+      }
+      for (const a of d.audio ?? []) {
+        const c = a.usd ?? audioCostUsd(a.model, a.seconds);
+        if (c === null) unpriced.add(a.model);
+        usd += c ?? 0;
+        const k = `transcription|${a.model}`;
+        const g = byStep.get(k) ?? { step: 'transcription', label: STEP.transcription, model: a.model, calls: 0, input: 0, output: 0, cached: 0, seconds: 0, usd: 0 };
+        g.seconds += a.seconds; g.usd += c ?? 0;
+        byStep.set(k, g);
+        T.audioSeconds += a.seconds;
+      }
+
+      const label = d.classification ? labels.get(d.classification) : undefined;
+      const done = d.status === 'handed_off' || d.status === 'handing_off';
+      const outcome =
+        label?.outcome === 'disqualify' || d.handoffReason === 'disqualified' ? 'disqualified'
+          : d.classification ? 'qualified'
+            : done ? 'team'
+              : d.inbound > 0 ? 'open' : 'no_reply';
+      T.conversations++;
+      if (d.inbound > 0) T.replied++;
+      if (d.aiReplies > 0) T.aiActed++;
+      T.inbound += d.inbound ?? 0; T.aiReplies += d.aiReplies ?? 0; T.outbound += d.outbound ?? 0; T.usd += usd;
+      T[({ qualified: 'qualified', disqualified: 'disqualified', team: 'team', open: 'open', no_reply: 'noReply' } as const)[outcome]]++;
+      if (d.classification) {
+        const g = byClass.get(d.classification) ?? { key: d.classification, label: label?.label ?? d.classification, outcome, count: 0 };
+        g.count++;
+        byClass.set(d.classification, g);
+      }
+      const day = dateBR(d.startedAt);
+      const g = byDay.get(day) ?? { date: day, conversations: 0, qualified: 0, disqualified: 0, usd: 0 };
+      g.conversations++; g.usd += usd;
+      if (outcome === 'qualified') g.qualified++;
+      if (outcome === 'disqualified') g.disqualified++;
+      byDay.set(day, g);
+
+      return {
+        id: d._id, leadId: d.leadId, leadUrl: d.leadUrl, name: d.name, phone: d.phone, startedAt: d.startedAt, lastAt: d.lastAt,
+        outcome, classification: d.classification, classificationLabel: label?.label ?? d.classification, handoffReason: d.handoffReason,
+        inbound: d.inbound ?? 0, aiReplies: d.aiReplies ?? 0, outbound: d.outbound ?? 0, usd, brl: usd * rate,
+      };
+    });
+
+    const brl = (usd: number) => usd * rate;
+    res.json({
+      from: dateBR(from), to: dateBR(new Date(to.getTime() - 1)),
+      fx: fxInfo(), prices: pricesInfo(), unpriced: [...unpriced],
+      totals: {
+        ...T, brl: brl(T.usd),
+        perConversationBrl: T.conversations ? brl(T.usd) / T.conversations : 0,
+        perAiConversationBrl: T.aiActed ? brl(T.usd) / T.aiActed : 0,
+        perQualifiedBrl: T.qualified ? brl(T.usd) / T.qualified : 0,
+      },
+      byStep: [...byStep.values()].sort((a, b) => b.usd - a.usd).map((g) => ({ ...g, brl: brl(g.usd) })),
+      byClassification: [...byClass.values()].sort((a, b) => b.count - a.count),
+      byDay: [...byDay.values()].sort((a, b) => a.date.localeCompare(b.date)).map((g) => ({ ...g, brl: brl(g.usd) })),
+      conversations,
+    });
+  }));
+
   /** Histórico completo de uma conversa registrada no log. */
   router.get('/api/agents/:key/integration/logs/:id', wrap(async (req, res) => {
     const log = await LiveLogModel.findOne({ _id: String(req.params.id), kitKey: String(req.params.key) }).lean();
@@ -472,6 +568,19 @@ export function createRuntime(deps: RuntimeDeps) {
 }
 
 /** Meia-noite (horário de Brasília, UTC-3 fixo) de `daysBack` dias atrás. */
+/** Data (AAAA-MM-DD) no fuso de Brasília. */
+export const dateBR = (d: Date) => new Date(d.getTime() - 3 * 3_600_000).toISOString().slice(0, 10);
+
+/** Período em datas de Brasília: [from 00:00, to+1 00:00). Inválido/ausente: últimos 30 dias até hoje. */
+export function periodBR(from: string, to: string, now = new Date()): { from: Date; to: Date } {
+  const parse = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? Date.parse(`${v}T03:00:00Z`) : NaN);
+  const end = parse(to);
+  const start = parse(from);
+  const toMs = (Number.isNaN(end) ? startOfDayBR(0, now).getTime() : end) + 86_400_000;
+  const fromMs = Number.isNaN(start) ? toMs - 30 * 86_400_000 : start;
+  return { from: new Date(Math.min(fromMs, toMs - 86_400_000)), to: new Date(toMs) };
+}
+
 export function startOfDayBR(daysBack = 0, now = new Date()): Date {
   const br = new Date(now.getTime() - 3 * 3_600_000); // relógio de Brasília lido como UTC
   const midnight = Date.UTC(br.getUTCFullYear(), br.getUTCMonth(), br.getUTCDate()) + 3 * 3_600_000;
